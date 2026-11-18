@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+coverage/
+next-env.d.ts
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.clerk/
+.DS_Store
+npm-debug.log*
+/tmp/
