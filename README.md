@@ -172,7 +172,7 @@ This section separates what was verified from what must be confirmed in the Shad
 | Install | `npm ci` |
 | Build | `npm run build` (`next build`). Passes with no database and no Clerk keys present. |
 | Start | `npm start` (`next start`). Honours `PORT` (checked with `PORT=4123`) and listens on all interfaces. Defaults to 3000. |
-| Runtime | Node.js 20.9 or newer (`engines` in `package.json`). Verified on Node 22. |
+| Runtime | Node.js 20.9 or newer (`engines` in `package.json`). `.nvmrc` names Node 22, the version this was verified on. |
 | Migrations | `npm run db:migrate`. Separate command. The app never migrates at startup. |
 | Fail closed | A production server without both Clerk keys, or with `CLOSE_DESK_DEV_AUTH=1`, returns 503 for every page and API route. `/api/health` returns 503 with `{"status":"closed","reason":"auth_not_configured"}`. |
 | Clerk | Against a temporary Clerk development instance and a production build: CLI invitation of the first administrator, invitation acceptance, invitations from the Team page, imports, approval, downloads, and refusal of a Clerk account that was not invited. |
