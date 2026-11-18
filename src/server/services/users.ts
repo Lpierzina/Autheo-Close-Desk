@@ -123,12 +123,14 @@ export async function sendProviderInvitation(email: string): Promise<{ sent: boo
     });
     return { sent: true, message: "Invitation email sent." };
   } catch (error) {
-    const status = (error as { status?: number }).status;
-    console.error(`[auth] Clerk invitation request failed${status ? ` (status ${status})` : ""}`);
+    const failure = error as { status?: number; errors?: { longMessage?: string; message?: string }[] };
+    console.error(`[auth] Clerk invitation request failed${failure.status ? ` (status ${failure.status})` : ""}`);
+    const reason = failure.status === 422 ? (failure.errors?.[0]?.longMessage ?? failure.errors?.[0]?.message) : undefined;
     return {
       sent: false,
-      message:
-        "The user was added, but Clerk did not send the invitation email. Check the Clerk dashboard and send the invitation again.",
+      message: reason
+        ? `The user was added, but Clerk did not accept the invitation: ${reason}`
+        : "The user was added, but Clerk did not send the invitation email. Check the Clerk dashboard and send the invitation again.",
     };
   }
 }
