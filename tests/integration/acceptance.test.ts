@@ -1,7 +1,7 @@
 import Decimal from "decimal.js";
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "@/domain/csv";
-import { call, signInAs, useDatabase } from "../support/app";
+import { call, signInAs, setupDatabase } from "../support/app";
 import { ALLOCATIONS_HEADER, csvOf, fixture, FUNDING_HEADER } from "../support/build";
 import {
   acknowledge,
@@ -23,7 +23,7 @@ import {
   routes,
 } from "../support/driver";
 
-useDatabase();
+setupDatabase();
 
 const rowOf = <T extends { key: string }>(rows: T[], key: string): T => {
   const row = rows.find((r) => r.key === key);

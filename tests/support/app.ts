@@ -40,7 +40,7 @@ const TABLES = [
   "app_users",
 ];
 
-export function useDatabase(): void {
+export function setupDatabase(): void {
   beforeAll(() => {
     execFileSync("node", [path.resolve(__dirname, "../../scripts/migrate.mjs")], {
       env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },

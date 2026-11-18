@@ -113,7 +113,7 @@ export async function sendProviderInvitation(email: string): Promise<{ sent: boo
     return { sent: false, message: "No invitation email was sent: APP_BASE_URL is not set." };
   }
   try {
-    const { createClerkClient } = await import("@clerk/nextjs/server");
+    const { createClerkClient } = await import("@clerk/backend");
     const clerk = createClerkClient({ secretKey: config.secretKey });
     await clerk.invitations.createInvitation({
       emailAddress: email,

@@ -98,7 +98,7 @@ export async function loadDecisions(offeringId: string, db?: Db): Promise<Decisi
  * Reconciles the offering from what is stored right now. There is no cached result to go
  * stale: every read, and the approval itself, recomputes from source records and decisions.
  */
-export async function loadWorkingState(offering: Offering, db?: Db): Promise<WorkingState> {
+export async function loadWorkingState(offering: Pick<Offering, "id" | "currency">, db?: Db): Promise<WorkingState> {
   // Sequential on purpose: inside a transaction all three reads share one connection.
   const records = await loadRecords(offering.id, db);
   const decisions = await loadDecisions(offering.id, db);
