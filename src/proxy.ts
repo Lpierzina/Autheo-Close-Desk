@@ -25,15 +25,12 @@ const clerk = clerkMiddleware(
     if (request.nextUrl.pathname.startsWith("/api/")) return unauthenticatedApi();
     return redirectToSignIn({ returnBackUrl: request.url });
   },
-  () => {
-    const config = getAuthConfig();
-    return {
-      publishableKey: config.publishableKey,
-      secretKey: config.secretKey,
-      signInUrl: "/sign-in",
-      signUpUrl: "/accept-invitation",
-    };
-  },
+  // Clerk reads CLERK_SECRET_KEY from the environment itself. Only non-secret options are passed here.
+  () => ({
+    publishableKey: getAuthConfig().publishableKey,
+    signInUrl: "/sign-in",
+    signUpUrl: "/accept-invitation",
+  }),
 );
 
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
