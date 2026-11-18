@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Card, CardHeader, EmptyState, Td, Th } from "@/components/ui";
 import { EXCEPTION_META, type ExceptionCode } from "@/domain/exceptions";
 import { FILE_KIND_LABEL, type FileKind } from "@/domain/types";
-import { formatDateTime } from "@/lib/format";
+import { formatMoney } from "@/domain/money";
+import { formatDateTime, plural } from "@/lib/format";
 import { pageOffering } from "@/server/page";
 import { listAudit, type AuditEvent } from "@/server/services/audit";
 
@@ -28,7 +29,7 @@ function text(value: unknown): string {
 }
 
 /** Renders an audit event from identifiers and counts only; the trail holds no investor records. */
-function describe(event: AuditEvent): { title: string; detail: string } {
+function describe(event: AuditEvent, currency: string): { title: string; detail: string } {
   const d = event.detail;
   switch (event.action) {
     case "offering.created":
@@ -37,7 +38,7 @@ function describe(event: AuditEvent): { title: string; detail: string } {
       const n = (key: string) => (typeof d[key] === "number" ? (d[key] as number) : 0);
       return {
         title: `Imported ${(FILE_KIND_LABEL[d.kind as FileKind] ?? "a file").toLowerCase()}`,
-        detail: `${text(d.filename)} · ${n("rowCount")} rows · ${n("newCount")} new · ${n("unchangedCount") + n("duplicateCount")} already imported · ${n("conflictCount")} conflicts · ${n("invalidCount")} invalid`,
+        detail: `${text(d.filename)} · ${plural(n("rowCount"), "row")} · ${n("newCount")} new · ${n("unchangedCount") + n("duplicateCount")} already imported · ${plural(n("conflictCount"), "conflict")} · ${n("invalidCount")} invalid`,
       };
     }
     case "decision.recorded": {
@@ -48,11 +49,13 @@ function describe(event: AuditEvent): { title: string; detail: string } {
         detail: [rowKey, code && EXCEPTION_META[code] ? EXCEPTION_META[code].title : null].filter(Boolean).join(" · "),
       };
     }
-    case "close.approved":
+    case "close.approved": {
+      const amount = text(d.registerAmount);
       return {
         title: `Approved the close as version ${text(d.version)}`,
-        detail: `${text(d.registerLines)} register lines · ${text(d.registerAmount)} · SHA-256 ${text(d.registerSha256).slice(0, 12)}…`,
+        detail: `${text(d.registerLines)} register lines · ${/^\d+(\.\d+)?$/.test(amount) ? formatMoney(amount, currency) : amount} · SHA-256 ${text(d.registerSha256).slice(0, 12)}…`,
       };
+    }
     case "export.downloaded":
       return {
         title: `Downloaded the ${FILE_LABEL[text(d.file)] ?? "export"}`,
@@ -97,7 +100,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ offer
               </thead>
               <tbody className="divide-y divide-line">
                 {events.map((event) => {
-                  const { title, detail } = describe(event);
+                  const { title, detail } = describe(event, access.offering.currency);
                   return (
                     <tr key={event.id}>
                       <Td className="num whitespace-nowrap pl-5 text-ink-2">{formatDateTime(event.createdAt)}</Td>

@@ -117,8 +117,8 @@ function assess(state: WorkingState, snapshots: SnapshotInfo[]): CloseReadiness 
   }
   const blockers = openItems.filter((i) => i.severity === "blocker").length;
   const reviews = openItems.length - blockers;
-  if (blockers > 0) reasons.push(`${blockers} blocker${blockers > 1 ? "s" : ""} need corrected source data.`);
-  if (reviews > 0) reasons.push(`${reviews} exception${reviews > 1 ? "s" : ""} still need a reviewer decision.`);
+  if (blockers > 0) reasons.push(blockers > 1 ? `${blockers} blockers need corrected source data.` : "1 blocker needs corrected source data.");
+  if (reviews > 0) reasons.push(reviews > 1 ? `${reviews} exceptions still need a reviewer decision.` : "1 exception still needs a reviewer decision.");
   if (missingFiles.length === 0 && openItems.length === 0 && result.register.length === 0) {
     reasons.push("There are no approved allocations to register.");
   }
