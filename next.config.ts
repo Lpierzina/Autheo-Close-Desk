@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
   // Keeps `next dev` from writing an AGENTS.md into the repository.
   agentRules: false,
+  devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

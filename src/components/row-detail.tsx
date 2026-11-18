@@ -429,7 +429,7 @@ export function RowDetail({
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
             {row ? <StatusPill status={row.status} /> : null}
             {row?.investorRef ? <span className="num">Investor {row.investorRef}</span> : null}
-            {row?.inRegister ? <Pill tone="info">In draft register</Pill> : row ? <Pill tone="neutral">Not in register</Pill> : null}
+            {row?.inRegister ? <Pill tone="info">In draft register</Pill> : row && row.kind !== "funding" ? <Pill tone="neutral">Not in register</Pill> : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -534,8 +534,8 @@ export function RowDetail({
                       return (
                         <li key={line.record.id} className="border-b border-line pb-3 last:border-0 last:pb-0">
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="num truncate text-[13px] font-medium text-ink">{d.transaction_ref}</span>
-                            <span className="num text-[13px] font-semibold text-ink">
+                            <span className="num min-w-0 break-all text-[13px] font-medium text-ink">{d.transaction_ref}</span>
+                            <span className="num whitespace-nowrap text-[13px] font-semibold text-ink">
                               {line.isReversal ? "−" : ""}
                               {formatMoney(d.amount, d.currency)}
                             </span>

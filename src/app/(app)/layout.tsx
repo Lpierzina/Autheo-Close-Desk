@@ -10,14 +10,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await pageUser();
   const mode = getAuthConfig().mode === "dev" ? "dev" : "clerk";
   return (
-    <div className="min-h-screen lg:pl-60">
+    <div className="min-h-screen lg:pl-56">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-ink focus:shadow"
       >
         Skip to content
       </a>
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-navy-900 px-4 py-3 lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:flex-col lg:flex-nowrap lg:items-stretch lg:gap-0 lg:px-3 lg:py-5">
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-navy-900 px-4 py-3 lg:fixed lg:inset-y-0 lg:left-0 lg:w-56 lg:flex-col lg:flex-nowrap lg:items-stretch lg:gap-0 lg:px-3 lg:py-5">
         <Link href="/offerings" className="rounded-md lg:mb-7 lg:px-2.5" aria-label="Autheo Close Desk, offerings">
           <Brand />
         </Link>
@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           ) : null}
         </div>
       </header>
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1480px] px-5 py-7 outline-none sm:px-8 lg:py-9">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1480px] px-5 py-7 outline-none sm:px-6 lg:py-8">
         {children}
       </main>
     </div>

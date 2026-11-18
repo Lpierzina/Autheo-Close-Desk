@@ -21,6 +21,12 @@ export default async function ImportsPage({ params }: { params: Promise<{ offeri
   const { access } = await pageOffering(offeringId);
   const state = await pageWorkingState(access.offering);
   const base = `/offerings/${access.offering.id}`;
+  const leftOut = state.batches.filter((batch) => batch.invalidRows.length > 0);
+  // The first total of a file in the offering currency: requested, gross cleared payments, or approved.
+  const batchTotal = (totals: { currency: string; amount: string }[]) => {
+    const total = totals.find((t) => t.currency === access.offering.currency) ?? totals[0];
+    return total ? formatMoney(total.amount, total.currency) : "—";
+  };
 
   return (
     <div className="space-y-6">
@@ -137,9 +143,7 @@ export default async function ImportsPage({ params }: { params: Promise<{ offeri
                     <Td className="num text-right text-ink-2">{batch.counts.unchangedCount + batch.counts.duplicateCount}</Td>
                     <Td className={`num text-right ${batch.counts.conflictCount > 0 ? "font-medium text-warn" : "text-ink-2"}`}>{batch.counts.conflictCount}</Td>
                     <Td className={`num text-right ${batch.counts.invalidCount > 0 ? "font-medium text-warn" : "text-ink-2"}`}>{batch.counts.invalidCount}</Td>
-                    <Td className="num whitespace-nowrap text-right">
-                      {batch.totals.totals[0] ? formatMoney(batch.totals.totals[0].amount, batch.totals.totals[0].currency) : "—"}
-                    </Td>
+                    <Td className="num whitespace-nowrap text-right">{batchTotal(batch.totals.totals)}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -148,11 +152,44 @@ export default async function ImportsPage({ params }: { params: Promise<{ offeri
         )}
         {state.batches.length > 0 ? (
           <p className="border-t border-line px-5 py-3 text-xs text-ink-3">
-            {plural(state.batches.length, "batch", "batches")}. Batch total is the first total of each file: requested amounts,
-            gross cleared payments, or approved amounts.
+            {plural(state.batches.length, "batch", "batches")}. Batch total is in {access.offering.currency}: requested amounts, gross
+            cleared payments, or approved amounts.
           </p>
         ) : null}
       </Card>
+
+      {leftOut.length > 0 ? (
+        <Card aria-labelledby="left-out-heading">
+          <CardHeader
+            title={<span id="left-out-heading">Rows left out of imports</span>}
+            description="Invalid rows a reviewer chose to leave out. They are not part of the reconciliation until a corrected file is imported."
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse">
+              <thead className="border-b border-line bg-paper">
+                <tr>
+                  <Th className="pl-5">File</Th>
+                  <Th>Imported</Th>
+                  <Th className="text-right">File row</Th>
+                  <Th className="pr-5">Problem</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {leftOut.flatMap((batch) =>
+                  batch.invalidRows.map((row) => (
+                    <tr key={`${batch.id}-${row.rowNumber}`}>
+                      <Td className="pl-5 font-medium">{batch.filename}</Td>
+                      <Td className="whitespace-nowrap text-ink-2">{formatDateTime(batch.importedAt)}</Td>
+                      <Td className="num text-right">{row.rowNumber}</Td>
+                      <Td className="pr-5 text-warn">{row.errors.join(". ")}</Td>
+                    </tr>
+                  )),
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }

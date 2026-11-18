@@ -199,7 +199,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ offer
             ))}
             {summary.otherCurrencies.map((o) => (
               <div key={`${o.currency}-${o.label}`}>
-                <dt className="text-ink-3">{o.label}, not netted</dt>
+                <dt className="text-ink-3">{o.label}</dt>
                 <dd className="num mt-0.5 font-medium text-danger">{formatMoney(o.amount, o.currency)}</dd>
               </div>
             ))}

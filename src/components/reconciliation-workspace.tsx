@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import { cmp, formatMoney, formatSignedMoney, formatUnits } from "@/domain/money";
 import type { ReconSummary } from "@/domain/reconcile";
 import { plural, titleCase } from "@/lib/format";
@@ -290,19 +290,21 @@ export function ReconciliationWorkspace({
                           key={column.key}
                           scope="col"
                           aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-                          className={cx("whitespace-nowrap px-3 py-0 text-xs font-medium uppercase tracking-wide text-ink-3", column.numeric ? "text-right" : "text-left", panelOpen && !column.compact && "xl:hidden")}
+                          className={cx(
+                            "whitespace-nowrap px-2.5 py-0 text-xs font-medium uppercase tracking-wide text-ink-3",
+                            column.numeric ? "text-right" : "text-left",
+                            panelOpen && !column.compact && "xl:hidden",
+                            column.key === "status" && "sticky right-0 bg-paper shadow-[-1px_0_0_var(--color-line)]",
+                          )}
                         >
                           <button
                             type="button"
                             onClick={() => toggleSort(column.key)}
+                            title={`Sort by ${column.label.toLowerCase()}`}
                             className={cx("inline-flex items-center gap-1 rounded py-2.5 uppercase tracking-wide hover:text-ink", column.numeric && "flex-row-reverse", active && "text-ink")}
                           >
                             {column.label}
-                            {active ? (
-                              sort.dir === "asc" ? <ArrowUp aria-hidden className="h-3 w-3" /> : <ArrowDown aria-hidden className="h-3 w-3" />
-                            ) : (
-                              <ChevronsUpDown aria-hidden className="h-3 w-3 opacity-40" />
-                            )}
+                            {active ? sort.dir === "asc" ? <ArrowUp aria-hidden className="h-3 w-3" /> : <ArrowDown aria-hidden className="h-3 w-3" /> : null}
                           </button>
                         </th>
                       );
@@ -315,13 +317,13 @@ export function ReconciliationWorkspace({
                     const open_ = row.exceptions.filter((e) => e.state === "open");
                     const listed = open_.length > 0 ? open_ : row.exceptions;
                     const hide = (compact?: boolean) => panelOpen && !compact && "xl:hidden";
-                    const cell = "px-3 py-2.5 align-top text-[13px]";
+                    const cell = "px-2.5 py-2.5 align-top text-[13px]";
                     return (
                       <tr
                         key={row.key}
                         onClick={() => open(row.key)}
                         aria-selected={isSelected}
-                        className={cx("cursor-pointer transition-colors", isSelected ? "bg-accent-soft" : "hover:bg-paper-2/70")}
+                        className={cx("cursor-pointer transition-colors", isSelected ? "bg-accent-soft" : "bg-surface hover:bg-paper-2")}
                       >
                         <td className={cx(cell, isSelected && "shadow-[inset_3px_0_0_var(--color-accent)]")}>
                           <button
@@ -363,10 +365,10 @@ export function ReconciliationWorkspace({
                         <td className={cx(cell, "num whitespace-nowrap text-right", hide(), row.variance && row.variance !== "0.00" ? "font-medium text-warn" : "text-ink-3")}>
                           {row.variance === null ? "—" : row.variance === "0.00" ? "0.00" : formatSignedMoney(row.variance, row.currency ?? summary.currency)}
                         </td>
-                        <td className={cell}>
+                        <td className={cx(cell, "sticky right-0 bg-inherit shadow-[-1px_0_0_var(--color-line)]")}>
                           <StatusPill status={row.status} />
                           {listed.length > 0 ? (
-                            <p className="mt-1 max-w-[220px] text-xs leading-snug text-ink-3">
+                            <p className="mt-1 w-[136px] text-xs leading-snug text-ink-3">
                               {listed[0]?.title}
                               {listed.length > 1 ? ` +${listed.length - 1} more` : ""}
                               {open_.length === 0 ? " · documented" : ""}
@@ -387,7 +389,7 @@ export function ReconciliationWorkspace({
           ) : null}
         </div>
         <p className="mt-2 text-xs text-ink-3">
-          Use the arrow keys to move between rows and Enter to open one. Escape closes the detail panel.
+          Select a column heading to sort. Use the arrow keys to move between rows and Enter to open one. Escape closes the detail panel.
         </p>
       </div>
 
