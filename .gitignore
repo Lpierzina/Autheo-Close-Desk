@@ -2,12 +2,12 @@ node_modules/
 .next/
 out/
 coverage/
+test-results/
+playwright-report/
 next-env.d.ts
 *.tsbuildinfo
 .env
 .env.*
-!.env.example
-.clerk/
 .DS_Store
 npm-debug.log*
 /tmp/
