@@ -6,7 +6,7 @@ export type AnswerTone = "ok" | "warn" | "danger" | "neutral";
 export interface Explanation {
   /** The three questions, answered from the three files. */
   answers: { question: string; source: string; answer: string; tone: AnswerTone }[];
-  /** What does not match, in one sentence. Null when everything agrees. */
+  /** What does not match or was flagged, in one sentence. Null when the three files agree and nothing was flagged. */
   difference: string | null;
   /** What the reviewed register export will carry for this row, and what Close Desk will not do. */
   outcome: string;
@@ -125,6 +125,8 @@ export function explainRow(row: ReconRow, dealCurrency: string): Explanation {
   }
 
   const open = row.exceptions.filter((e) => e.state === "open");
+  // Not every exception is a difference in amounts (an unsigned subscription, a payment in another currency).
+  if (difference === null) difference = (open[0] ?? row.exceptions[0])?.message ?? null;
   const blocked = open.some((e) => e.severity === "blocker");
   const hasAllocation = allocation !== null && isPositive(allocation.approved_amount);
   const carries = hasAllocation ? `the approved ${formatMoney(allocation.approved_amount, allocation.currency)} and ${formatUnits(allocation.approved_units)} units` : "";

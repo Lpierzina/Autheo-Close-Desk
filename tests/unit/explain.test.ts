@@ -30,6 +30,8 @@ describe("plain-English explanation of a row", () => {
 
     const unsigned = explainRow(rowOf(state, "SUB-1019::CLASS A"), "USD");
     expect(unsigned.answers[0]).toMatchObject({ answer: "No. The subscription for $50,000.00 is pending.", tone: "danger" });
+    // The amounts agree here; what is wrong is the signature, and the explanation says so.
+    expect(unsigned.difference).toBe("Signature status is pending, but $50,000.00 is approved.");
   });
 
   it("shows a reversed wire as gross payments less the reversal, so the listed amounts add up", () => {

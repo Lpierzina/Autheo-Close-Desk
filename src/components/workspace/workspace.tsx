@@ -69,8 +69,10 @@ function Stepper({ step, onStep, state, view }: { step: Step; onStep: (step: Ste
                 >
                   {index + 1}
                 </span>
-                <span className={cx("text-[13px] font-medium", current ? "text-ink" : "text-ink-2")}>{item.label}</span>
-                {b ? <span className={cx("num ml-auto whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium", tone[b.tone])}>{b.text}</span> : null}
+                <span className="flex min-w-0 flex-1 flex-col items-start gap-1 lg:flex-row lg:items-center lg:justify-between lg:gap-2">
+                  <span className={cx("text-[13px] font-medium", current ? "text-ink" : "text-ink-2")}>{item.label}</span>
+                  {b ? <span className={cx("num whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium", tone[b.tone])}>{b.text}</span> : null}
+                </span>
               </button>
             </li>
           );
@@ -170,12 +172,18 @@ function ReviewStep({
                   {line}
                 </span>
               ))}
-              {total.warn.map((line) => (
-                <span key={line} className="flex items-center gap-1.5 font-medium text-warn">
-                  <AlertTriangle aria-hidden className="h-3 w-3 shrink-0" />
-                  {line}
-                </span>
-              ))}
+              {total.warn.map((line) =>
+                open > 0 ? (
+                  <span key={line} className="flex items-center gap-1.5 font-medium text-warn">
+                    <AlertTriangle aria-hidden className="h-3 w-3 shrink-0" />
+                    {line}
+                  </span>
+                ) : (
+                  <span key={line} className="block text-ink-2">
+                    {line}
+                  </span>
+                ),
+              )}
             </dd>
           </div>
         ))}
@@ -197,8 +205,11 @@ function SampleGuide({ onOpenGuided, onCorrections, onStep }: { onOpenGuided: ()
   const guidedDone = Boolean(guided) && guided!.exceptions.every((e) => e.state !== "open");
   const correctionNames = new Set(SAMPLE_CORRECTION_FILES.map((file) => file.filename));
   const correctionsAdded = state.batches.filter((batch) => correctionNames.has(batch.filename)).length === SAMPLE_CORRECTION_FILES.length;
-  // SUB-1031 carries a review item that only the corrected funding file clears, so it belongs to the later step.
-  const reviewLeft = view.openItems.filter((item) => item.severity === "review" && item.rowKey !== GUIDED_ROW && item.rowKey !== CLEARED_BY_CORRECTION).length;
+  // SUB-1031 carries a review item that only the corrected funding file clears, and changed records arrive with the
+  // correction files, so both belong to the later step.
+  const reviewLeft = view.openItems.filter(
+    (item) => item.severity === "review" && item.code !== "SOURCE_CONFLICT" && item.rowKey !== GUIDED_ROW && item.rowKey !== CLEARED_BY_CORRECTION,
+  ).length;
   const correctionsSelected = Object.values(state.staged).some((staged) => correctionNames.has(staged.filename));
 
   const items: { done: boolean; title: string; body: string; action?: { label: string; run: () => void } }[] = [

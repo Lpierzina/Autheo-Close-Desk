@@ -284,7 +284,7 @@ export function RowTable({
                       <td className={cx(cell, "num whitespace-nowrap text-right")}>
                         {row.approvedUnits === null ? <span className="text-ink-3">—</span> : formatUnits(row.approvedUnits)}
                       </td>
-                      <td className={cx(cell, "num whitespace-nowrap text-right", variance ? "font-medium text-warn" : "text-ink-3")}>
+                      <td className={cx(cell, "num whitespace-nowrap text-right", !variance ? "text-ink-3" : row.status === "ready" ? "text-ink-2" : "font-medium text-warn")}>
                         {row.variance === null ? "—" : variance ? formatSignedMoney(row.variance, row.currency ?? summary.currency) : "0.00"}
                       </td>
                       <td className={cell}>

@@ -185,6 +185,9 @@ export function RowReview({ row, position, onStep, onDecided, onSelectFiles, foo
   const subscriptionIds = view.result.rows.flatMap((r) => (r.kind === "subscription" && r.subscriptionId ? [r.subscriptionId] : []));
   const title = row.kind === "funding" ? `Payment ${row.transactionRef}` : `${row.subscriptionId}${row.shareClass ? ` · ${row.shareClass}` : ""}`;
   const hasVariance = row.variance !== null && row.variance !== "0.00";
+  // Amber and red are kept for what still needs attention; a reviewed difference is shown plainly.
+  const openExceptions = row.exceptions.filter((e) => e.state === "open");
+  const attention = openExceptions.some((e) => e.severity === "blocker") ? "blocker" : openExceptions.length > 0 ? "review" : "none";
 
   function decide(input: Omit<DecisionInput, "rowKey">, message: string, next?: { subscriptionId: string }) {
     const result = run((s) => recordDecision(s, { rowKey: row.key, ...input }).state);
@@ -488,14 +491,14 @@ export function RowReview({ row, position, onStep, onDecided, onSelectFiles, foo
         <section
           aria-labelledby="difference-heading"
           data-testid="difference"
-          className={cx("rounded-md border px-4 py-3.5", explanation.difference ? "border-warn-line bg-warn-soft" : "border-line bg-surface")}
+          className={cx("rounded-md border px-4 py-3.5", attention === "blocker" ? "border-danger-line bg-danger-soft" : attention === "review" ? "border-warn-line bg-warn-soft" : "border-line bg-surface")}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h3 id="difference-heading" className={cx("text-sm font-semibold", explanation.difference ? "text-warn" : "text-ink")}>
+            <h3 id="difference-heading" className={cx("text-sm font-semibold", attention === "blocker" ? "text-danger" : attention === "review" ? "text-warn" : "text-ink")}>
               {explanation.difference ? "What doesn't match" : "The three files agree"}
             </h3>
             {hasVariance && row.variance ? (
-              <p className="num text-sm font-semibold text-warn">
+              <p className={cx("num text-sm font-semibold", attention === "blocker" ? "text-danger" : attention === "review" ? "text-warn" : "text-ink")}>
                 {formatSignedMoney(row.variance, currency)}
                 <span className="ml-1.5 text-xs font-normal text-ink-2">net cleared less {row.varianceBasis === "approved" ? "approved" : "signed for"}</span>
               </p>
