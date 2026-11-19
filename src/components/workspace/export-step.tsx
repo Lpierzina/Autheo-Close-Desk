@@ -12,6 +12,7 @@ import { Button, Callout, Card, CardHeader, Pill, cx, inputClass } from "../ui";
 import { SLOT, stamp } from "./shared";
 
 const REGISTER_PREVIEW = 12;
+const REGISTER_PREVIEW_ALL = 500;
 
 export function ExportStep({ onResolve, onSelectFiles, onNotice }: { onResolve: () => void; onSelectFiles: () => void; onNotice: (message: string) => void }) {
   const { state, view, run } = useSession();
@@ -19,6 +20,7 @@ export function ExportStep({ onResolve, onSelectFiles, onNotice }: { onResolve: 
   const [note, setNote] = useState("");
   const [error, setError] = useState<{ message: string; reasons: string[] } | null>(null);
   const [saved, setSaved] = useState<{ fingerprint: string; register: boolean; exceptions: boolean }>({ fingerprint: "", register: false, exceptions: false });
+  const [allLines, setAllLines] = useState(false);
   const checkId = useId();
   const noteId = useId();
   const blockedId = useId();
@@ -28,6 +30,7 @@ export function ExportStep({ onResolve, onSelectFiles, onNotice }: { onResolve: 
   const hasRecords = state.records.length > 0;
   const savedHere = saved.fingerprint === view.fingerprint ? saved : { fingerprint: view.fingerprint, register: false, exceptions: false };
   const money = (value: string) => formatMoney(value, summary.currency);
+  const shown = Math.min(register.length, allLines ? REGISTER_PREVIEW_ALL : REGISTER_PREVIEW);
   const classes = [...new Set(register.map((line) => line.shareClass))];
   const unitsInRegister = classes.map((shareClass) => ({
     shareClass,
@@ -148,7 +151,7 @@ export function ExportStep({ onResolve, onSelectFiles, onNotice }: { onResolve: 
                     </tr>
                   </thead>
                   <tbody className="num divide-y divide-line">
-                    {register.slice(0, REGISTER_PREVIEW).map((line) => (
+                    {register.slice(0, shown).map((line) => (
                       <tr key={`${line.subscriptionId}-${line.shareClass}`}>
                         <td className="px-5 py-2 text-ink-2">{line.investorRef}</td>
                         <td className="px-3 py-2 text-ink-2">{line.shareClass}</td>
@@ -160,10 +163,24 @@ export function ExportStep({ onResolve, onSelectFiles, onNotice }: { onResolve: 
                   </tbody>
                 </table>
               </div>
-              <p className="num border-t border-line px-5 py-2.5 text-xs text-ink-3">
-                {register.length > REGISTER_PREVIEW ? `First ${REGISTER_PREVIEW} of ${register.length} lines. ` : ""}
-                {unitsInRegister.map((c) => `${c.shareClass}: ${formatUnits(c.units)} units`).join(" · ")}
-              </p>
+              <div className="num flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-t border-line px-5 py-2.5 text-xs text-ink-3">
+                <p>
+                  {shown < register.length ? `First ${shown.toLocaleString("en-US")} of ${register.length.toLocaleString("en-US")} lines. ` : ""}
+                  {allLines && shown < register.length ? "The download contains every line. " : ""}
+                  {unitsInRegister.map((c) => `${c.shareClass}: ${formatUnits(c.units)} units`).join(" · ")}
+                </p>
+                {register.length > REGISTER_PREVIEW ? (
+                  <button
+                    type="button"
+                    aria-expanded={allLines}
+                    data-testid="register-lines-toggle"
+                    onClick={() => setAllLines((v) => !v)}
+                    className="rounded-sm font-medium text-accent-strong underline decoration-accent-line underline-offset-2 hover:decoration-accent-strong"
+                  >
+                    {allLines ? `Show the first ${REGISTER_PREVIEW} lines` : `Show all ${register.length.toLocaleString("en-US")} lines`}
+                  </button>
+                ) : null}
+              </div>
             </>
           )}
         </Card>

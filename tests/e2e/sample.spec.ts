@@ -76,6 +76,14 @@ test.describe("the synthetic Riverbend Flats deal, from the home page to the exp
     await expect(page.getByTestId("export-blocked")).toContainText("8 blockers need corrected source data.");
     await expect(page.getByTestId("export-blocked")).toContainText("7 exceptions still need a review decision.");
     await expect(page.getByTestId("download-register")).toBeDisabled();
+
+    // The whole draft register can be read on screen before anything is confirmed.
+    const draftLine = page.getByRole("row").filter({ hasText: "SUB-1012" });
+    await expect(draftLine).toHaveCount(0);
+    await page.getByTestId("register-lines-toggle").click();
+    await expect(draftLine).toContainText("INV-0412");
+    await expect(draftLine).toContainText("$90,000.00");
+    await expect(draftLine).not.toContainText("$100,000.00");
     const draft = await download(page, "download-exceptions");
     expect(draft.filename).toBe("riverbend-flats-apartments-exceptions-report-DRAFT.csv");
     expect(draft.text).toContain("SUB-1036");
