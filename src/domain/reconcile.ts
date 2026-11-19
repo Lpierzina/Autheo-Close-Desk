@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "./sha256";
 import { EXCEPTION_META, type ExceptionCode, type Resolution, type Severity } from "./exceptions";
 import { add, cmp, formatMoney, isPositive, sub, sumMoney, sumUnits, ZERO } from "./money";
 import {
@@ -132,7 +132,7 @@ export interface ReconcileInput {
 }
 
 function hash(parts: unknown[]): string {
-  return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
+  return sha256(JSON.stringify(parts));
 }
 
 interface TxnState {
@@ -316,7 +316,7 @@ export function reconcile(input: ReconcileInput): ReconResult {
       continue;
     }
     if (!original) {
-      state.invalidReason = `Original transaction ${data.original_transaction_ref} is not in this offering's funding.`;
+      state.invalidReason = `Original transaction ${data.original_transaction_ref} is not in this deal's funding.`;
     } else if (original.isReversal) {
       state.invalidReason = `Original transaction ${data.original_transaction_ref} is itself a reversal.`;
     } else if (original.data.currency !== data.currency) {
@@ -324,7 +324,7 @@ export function reconcile(input: ReconcileInput): ReconResult {
     } else if (data.subscription_id && original.target && idKey(data.subscription_id) !== original.target) {
       state.invalidReason = `Reversal names subscription ${data.subscription_id}, but the original transaction belongs to another subscription.`;
     } else if (original.excluded) {
-      state.note = "The original transaction was excluded by a reviewer, so this reversal has no effect.";
+      state.note = "The original transaction was excluded in review, so this reversal has no effect.";
     } else if (original.data.settlement_status !== "cleared") {
       state.invalidReason = `Original transaction ${data.original_transaction_ref} is ${original.data.settlement_status}, not cleared.`;
     } else {
@@ -483,7 +483,7 @@ export function reconcile(input: ReconcileInput): ReconResult {
       if (!state.isReversal) {
         if (state.excluded) {
           treatment = "excluded";
-          note = "Excluded by a reviewer; not counted.";
+          note = "Excluded in review; not counted.";
         } else if (d.currency !== s.currency) {
           treatment = "currency_mismatch";
           note = `In ${d.currency}; the subscription is in ${s.currency}. Not netted.`;
@@ -513,8 +513,8 @@ export function reconcile(input: ReconcileInput): ReconResult {
               state.key,
               state.rec.contentHash,
               state.decision.action === "exclude"
-                ? `${d.transaction_ref} (${formatMoney(d.amount, d.currency)}) was excluded from funding by a reviewer.`
-                : `${d.transaction_ref} (${formatMoney(d.amount, d.currency)}) was linked to this subscription by a reviewer. ${state.issue?.message ?? ""}`.trim(),
+                ? `${d.transaction_ref} (${formatMoney(d.amount, d.currency)}) was excluded from funding in review.`
+                : `${d.transaction_ref} (${formatMoney(d.amount, d.currency)}) was linked to this subscription in review. ${state.issue?.message ?? ""}`.trim(),
               { state: "resolved", decision: state.decision, transactionRef: d.transaction_ref, currency: d.currency },
             ),
           );
@@ -552,7 +552,7 @@ export function reconcile(input: ReconcileInput): ReconResult {
     const comparable = a === null || a.currency === s.currency;
 
     if (s.currency !== offeringCurrency) {
-      currencyIssues.unshift(`The subscription is in ${s.currency}; the offering closes in ${offeringCurrency}.`);
+      currencyIssues.unshift(`The subscription is in ${s.currency}; the deal closes in ${offeringCurrency}.`);
     }
     if (a && a.currency !== s.currency) {
       currencyIssues.push(`The allocation is in ${a.currency}; the subscription is in ${s.currency}.`);
@@ -798,14 +798,14 @@ export function reconcile(input: ReconcileInput): ReconResult {
       } else treatment = "not_cleared";
     } else if (state.excluded && state.decision) {
       treatment = "excluded";
-      note = "Excluded by a reviewer; not counted.";
+      note = "Excluded in review; not counted.";
       exceptions.push(
         makeException(
           "EXCLUDED_FUNDING",
           "funding",
           state.key,
           state.rec.contentHash,
-          `${d.transaction_ref} (${formatMoney(d.amount, d.currency)}) was excluded from funding by a reviewer. ${state.issue?.message ?? ""}`.trim(),
+          `${d.transaction_ref} (${formatMoney(d.amount, d.currency)}) was excluded from funding in review. ${state.issue?.message ?? ""}`.trim(),
           { state: "resolved", decision: state.decision, transactionRef: d.transaction_ref, currency: d.currency },
         ),
       );

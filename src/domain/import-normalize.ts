@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "./sha256";
 import type { ParsedCsv } from "./csv";
 import { IMPORT_FIELDS, type ColumnMapping } from "./import-fields";
 import { cmp, isZero, negate, parseMoney, parseUnits, sumMoney, sumUnits, isNegative } from "./money";
@@ -145,7 +145,7 @@ export function parseSettledAt(value: string): { ok: true; value: string } | { o
 }
 
 function hashContent(parts: (string | null)[]): string {
-  return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
+  return sha256(JSON.stringify(parts));
 }
 
 export function recordKey<K extends FileKind>(kind: K, data: DataByKind[K]): string {

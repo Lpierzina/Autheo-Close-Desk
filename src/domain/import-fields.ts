@@ -78,7 +78,7 @@ export const IMPORT_FIELDS: Record<FileKind, FieldSpec[]> = {
       label: "Transaction reference",
       required: true,
       description:
-        "Unique reference of the bank transaction. Re-importing a row with the same reference never counts it twice; a changed row with the same reference goes to review.",
+        "Unique reference of the bank transaction. Adding a row with the same reference again never counts it twice; a changed row with the same reference goes to review.",
       example: "WIRE-20311",
       aliases: ["transaction_ref", "transaction_reference", "transaction_id", "txn_ref", "txn_id", "bank_reference", "bank_ref", "trace_number"],
     },
@@ -87,7 +87,7 @@ export const IMPORT_FIELDS: Record<FileKind, FieldSpec[]> = {
       label: "Subscription ID",
       required: false,
       description:
-        "Subscription the payment belongs to. Leave empty only when a payment reference is supplied. Rows with neither are imported as unmatched funding for a reviewer to link.",
+        "Subscription the payment belongs to. Leave empty only when a payment reference is supplied. Rows with neither are added as unmatched funding, to be linked during review.",
       example: "SUB-1012",
       aliases: ["subscription_id", "subscription", "sub_id", "subscription_no", "subscription_number"],
     },

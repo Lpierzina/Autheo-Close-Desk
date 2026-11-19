@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseCsv } from "@/domain/csv";
 import { suggestMapping, validateMapping } from "@/domain/import-fields";
 import { batchTotals, normalizeRows } from "@/domain/import-normalize";
-import { SAMPLE_FILES } from "@/server/sample-files.generated";
+import { SAMPLE_FILES } from "@/session/sample-files.generated";
 import { ALLOCATIONS_HEADER, csvOf, fixture, FUNDING_HEADER, SUBSCRIPTIONS_HEADER } from "../support/build";
 
 function normalize<K extends "subscriptions" | "funding" | "allocations">(kind: K, csv: string, mapping?: Record<string, string | null>) {
@@ -142,7 +142,7 @@ describe("row validation", () => {
 });
 
 describe("example files", () => {
-  it("are the files the app serves for download", () => {
+  it("are the files the app bundles for the sample session and for download", () => {
     for (const name of ["subscriptions.csv", "funding.csv", "allocations.csv"]) {
       expect(SAMPLE_FILES[name], name).toBe(fixture(name));
     }

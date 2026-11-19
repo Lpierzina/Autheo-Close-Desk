@@ -5,14 +5,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "server-only": path.resolve(import.meta.dirname, "tests/support/server-only.ts"),
     },
   },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
-    fileParallelism: false,
+    // The 20,000-row timing probe runs only through `npm run test:scale`.
+    include: process.env.SCALE ? ["tests/perf/**/*.test.ts"] : ["tests/unit/**/*.test.ts", "tests/session/**/*.test.ts"],
     testTimeout: 30_000,
-    hookTimeout: 30_000,
   },
 });
