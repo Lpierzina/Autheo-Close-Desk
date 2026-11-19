@@ -1,0 +1,5 @@
+Bank Ref,Subscription No,Wire Memo,Credit Amount,CCY,Payment Status,Value Date,Reverses
+WIRE-PENDING-1023,SUB-1023,,"50,000.00",USD,Settled,11/06/2026,
+RTN-20319,SUB-1031,,"-40,000.00",USD,Settled,2026-11-03,WIRE-20319
+WIRE-20336,SUB-1036,,"40,000.00",USD,Settled,11/04/2026,
+WIRE-20346,SUB-1046,,"100,000.00",USD,Settled,2026-11-05,

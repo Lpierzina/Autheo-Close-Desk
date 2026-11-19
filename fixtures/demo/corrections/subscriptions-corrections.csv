@@ -1,0 +1,2 @@
+subscription_id,investor_ref,share_class,requested_amount,currency,signature_status,payment_reference
+SUB-1019,INV-0419,Class A,50000.00,USD,signed,

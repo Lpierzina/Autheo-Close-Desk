@@ -1,0 +1,18 @@
+{
+  "offering": "Riverbend Flats Apartments",
+  "currency": "USD",
+  "registerLines": 47,
+  "approvedAmount": "5000000.00",
+  "byShareClass": {
+    "Class A": {
+      "lines": 34,
+      "approvedAmount": "3349500.00",
+      "approvedUnits": "3349.5"
+    },
+    "Class B": {
+      "lines": 13,
+      "approvedAmount": "1650500.00",
+      "approvedUnits": "1320.4"
+    }
+  }
+}
