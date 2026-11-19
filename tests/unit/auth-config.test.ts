@@ -18,6 +18,22 @@ describe("authentication configuration fails closed", () => {
     expect(getAuthConfig({ NODE_ENV: "production", NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "sk_live_x", CLERK_SECRET_KEY: "pk_live_x" }).mode).toBe("closed");
   });
 
+  it("says which variable to fix without echoing any value", () => {
+    const reason = (env: Record<string, string>) => getAuthConfig({ NODE_ENV: "production", ...env }).reason;
+    expect(reason({})).toBe("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY are not set in the runtime environment.");
+    expect(reason({ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_x" })).toBe("CLERK_SECRET_KEY is not set in the runtime environment.");
+    expect(reason({ CLERK_SECRET_KEY: "sk_live_x" })).toBe("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set in the runtime environment.");
+    expect(reason({ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_x", CLERK_SECRET_KEY: "hunter2-not-a-key" })).toBe(
+      "CLERK_SECRET_KEY must start with sk_test_ or sk_live_.",
+    );
+    const swapped = reason({ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "sk_live_SECRETVALUE", CLERK_SECRET_KEY: "pk_live_PUBLICVALUE" });
+    expect(swapped).toContain("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must start with");
+    expect(swapped).toContain("CLERK_SECRET_KEY must start with");
+    expect(swapped).not.toContain("SECRETVALUE");
+    expect(swapped).not.toContain("PUBLICVALUE");
+    expect(reason({ CLOSE_DESK_DEV_AUTH: "1", ...CLERK })).toContain("CLOSE_DESK_DEV_AUTH is set in production");
+  });
+
   it("uses Clerk when both keys are present", () => {
     expect(getAuthConfig({ NODE_ENV: "production", ...CLERK })).toMatchObject({ mode: "clerk", publishableKey: "pk_live_placeholder" });
   });
