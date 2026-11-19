@@ -33,13 +33,20 @@ const clerk = clerkMiddleware(
   }),
 );
 
+let loggedClosedReason: string | undefined;
+
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   const config = getAuthConfig();
 
   if (config.mode === "closed") {
     // Fail closed: without a complete authentication configuration nothing is served.
+    // The reason names environment variables only, so a deploy log shows what to fix.
+    if (config.reason !== loggedClosedReason) {
+      loggedClosedReason = config.reason;
+      console.error(`[auth] Serving 503 on every route: ${config.reason}`);
+    }
     if (request.nextUrl.pathname === "/api/health") return NextResponse.next();
-    return new NextResponse("Autheo Close Desk is unavailable: authentication is not configured.", {
+    return new NextResponse(`Autheo Close Desk is unavailable: authentication is not configured. ${config.reason}`, {
       status: 503,
       headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8" },
     });

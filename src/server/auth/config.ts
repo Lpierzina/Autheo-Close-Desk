@@ -2,7 +2,7 @@ export type AuthMode = "clerk" | "dev" | "closed";
 
 export interface AuthConfig {
   mode: AuthMode;
-  /** Why access is closed. Safe to show to an operator; never contains a secret. */
+  /** Why access is closed. Names variables and expected prefixes only; never contains a value. */
   reason?: string;
   publishableKey?: string;
   secretKey?: string;
@@ -29,15 +29,22 @@ export function getAuthConfig(env: Env = process.env): AuthConfig {
     }
     return { mode: "dev" };
   }
-  if (!publishableKey || !secretKey) {
+  const missing = [
+    publishableKey ? null : "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    secretKey ? null : "CLERK_SECRET_KEY",
+  ].filter((name): name is string => name !== null);
+  if (missing.length > 0) {
     return {
       mode: "closed",
-      reason: "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY must both be set.",
+      reason: `${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} not set in the runtime environment.`,
     };
   }
-  if (!/^pk_(test|live)_/.test(publishableKey) || !/^sk_(test|live)_/.test(secretKey)) {
-    return { mode: "closed", reason: "The Clerk keys are not in the expected pk_/sk_ format." };
-  }
+  // Report the variable name and the expected prefix only. The value is never echoed.
+  const malformed = [
+    /^pk_(test|live)_/.test(publishableKey ?? "") ? null : "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must start with pk_test_ or pk_live_.",
+    /^sk_(test|live)_/.test(secretKey ?? "") ? null : "CLERK_SECRET_KEY must start with sk_test_ or sk_live_.",
+  ].filter((problem): problem is string => problem !== null);
+  if (malformed.length > 0) return { mode: "closed", reason: malformed.join(" ") };
   return { mode: "clerk", publishableKey, secretKey };
 }
 

@@ -147,7 +147,7 @@ Limits: CSV only, UTF-8, 4 MB, 20,000 rows, 60 columns. Column names do not have
 ```bash
 npm run lint
 npm run typecheck
-npm test          # 76 tests: 60 unit, 16 integration
+npm test          # 77 tests: 61 unit, 16 integration
 npm run build
 ```
 
@@ -161,9 +161,9 @@ Integration tests call the real route handlers against PostgreSQL (`TEST_DATABAS
 
 ## Deploying to Shadw.cloud
 
-This section separates what was verified from what must be confirmed in the Shadw dashboard. Nothing has been deployed or published.
+This section separates what was verified locally, what was observed in a real Shadw build, and what must still be confirmed in the Shadw dashboard.
 
-**Sources.** Shadw statements below come from its public pages as read on 2026-11-18: <https://shadw.cloud/docs/getting-started>, <https://shadw.cloud/docs/api-reference> and <https://shadw.cloud/llms.txt>. App statements were verified locally on Node 22.23.4, npm 10.9.9 and PostgreSQL 16.15.
+**Sources.** Shadw statements below come from its public pages as read on 2026-11-18: <https://shadw.cloud/docs/getting-started>, <https://shadw.cloud/docs/api-reference> and <https://shadw.cloud/llms.txt>. App statements were verified locally on Node 22.23.4, npm 10.9.9 and PostgreSQL 16.15. The first Shadw build of `main` ran on 2026-11-19; what its log showed is listed under [Observed on Shadw](#observed-on-shadw).
 
 ### Verified locally
 
@@ -174,7 +174,7 @@ This section separates what was verified from what must be confirmed in the Shad
 | Start | `npm start` (`next start`). Honours `PORT` (checked with `PORT=4123`) and listens on all interfaces. Defaults to 3000. |
 | Runtime | Node.js 20.9 or newer (`engines` in `package.json`). `.nvmrc` names Node 22, the version this was verified on. |
 | Migrations | `npm run db:migrate`. Separate command. The app never migrates at startup. |
-| Fail closed | A production server without both Clerk keys, or with `CLOSE_DESK_DEV_AUTH=1`, returns 503 for every page and API route. `/api/health` returns 503 with `{"status":"closed","reason":"auth_not_configured"}`. |
+| Fail closed | A production server without both Clerk keys, or with `CLOSE_DESK_DEV_AUTH=1`, returns 503 for every page and API route. The response text and the server log name the variable to fix, never a value. `/api/health` returns 503 with `{"status":"closed","reason":"auth_not_configured"}`. |
 | Clerk | Against a temporary Clerk development instance and a production build: CLI invitation of the first administrator, invitation acceptance, invitations from the Team page, imports, approval, downloads, and refusal of a Clerk account that was not invited. |
 
 ### What Shadw documents
@@ -186,15 +186,29 @@ This section separates what was verified from what must be confirmed in the Shad
 - Managed Postgres with a per-database connection URL, provisioned from the dashboard.
 - Each deployment has its own URL. The latest production deploy owns the project domain. Promoting an earlier deployment rolls back.
 
+### Observed on Shadw
+
+From the build log of the first production deploy of `main` (2026-11-19, region `san-jose`). That deploy was not promoted: its readiness check failed because the Clerk variables were not set. See [If the deploy fails its readiness check](#if-the-deploy-fails-its-readiness-check).
+
+| Item | What the log showed |
+| --- | --- |
+| Detection | "Detected framework: Next.js — primitive: Hybrid, package manager: npm". No build settings were needed. |
+| Install | `npm ci --no-audit --no-fund`. Passed. |
+| Build | `npm run build`. Passed. |
+| Start | Shadw provisions the server itself: `node node_modules/next/dist/bin/next start`. This is the same server as `npm start`. No start command was asked for. |
+| Request proxy | "middleware: true". `src/proxy.ts` also ran at runtime: the readiness response was the proxy's 503 text. |
+| Readiness | After the build, Shadw sends a request to the server and fails the deploy on HTTP 503. The log does not show which path it requests or which statuses it accepts. |
+| Not shown | The Node.js version, and whether `PORT` is supplied. |
+
 ### Dashboard checks
 
 Shadw's public documentation does not state the following. Confirm each in the dashboard or with Shadw support. No setting has been invented here.
 
 | # | Check | Why it matters |
 | --- | --- | --- |
-| 1 | **Start command and `PORT`.** The documented Next.js path has no start-command setting, and the docs do not say whether `PORT` is supplied. If the dashboard asks for a start command, use `npm start`; it honours `PORT` and binds all interfaces. | Requested verification. Not determinable from public docs. |
+| 1 | **`PORT`.** Shadw starts the server itself (see [Observed on Shadw](#observed-on-shadw)) and that server answered the readiness request, so no start command or port setting was needed. Neither the docs nor the build log say whether `PORT` is supplied. `next start` honours `PORT` if it is, and uses 3000 if it is not. | Requested verification. Nothing to set unless a deploy reports a port error. |
 | 2 | **Node.js version** used for build and runtime is 20.9 or newer (22 preferred). | Next.js 16 requires it. |
-| 3 | **Next.js 16 request proxy** (`src/proxy.ts`, Node runtime) runs on Shadw's Next.js adapter. | It applies the fail-closed 503 and the signed-out redirect. Authorization is also enforced inside every route and page, so a skipped proxy does not open access, but confirm with smoke test steps 1 and 2. |
+| 3 | **Readiness check**: which path Shadw requests and which statuses it accepts. Only a 503 has been observed to fail it. With authentication configured, a signed-out request gets 307 to `/sign-in` on `/` and 200 on `/api/health`. If a deploy fails readiness with a status other than 503 and Shadw offers a health-check path, `/api/health` is the route meant for it. | A redirect on `/` is the expected signed-out answer. Whether Shadw counts it as ready is not known. |
 | 4 | **Request body limit** allows at least 5 MB. | Import files can be up to 4 MB. |
 | 5 | **Managed Postgres**: the name under which the connection URL is exposed (the app reads `DATABASE_URL`), whether it must be added to the project by hand, whether TLS is required, and whether the database accepts connections from outside Shadw. | Decides how migrations and the invite command are run. See step 4. |
 | 6 | **Connection limit** of the database plan against the number of app instances. Each instance opens up to `DATABASE_POOL_MAX` connections (default 5). | Serverless instances scale out. |
@@ -215,15 +229,33 @@ Shadw's public documentation does not state the following. Confirm each in the d
 
 There is no separate OAuth callback route to register: Clerk's components handle the handshake on `/sign-in` and `/accept-invitation`.
 
+For a first smoke test with synthetic data on a Shadw-provided address, a Clerk development instance (`pk_test_` and `sk_test_` keys) works without a domain of your own. Do not use a development instance with real investor data.
+
 **2. Database**
 
 Provision a PostgreSQL database (14 or newer) from the Shadw dashboard, or use an external one. Note its connection URL (dashboard check 5).
 
-**3. Project and environment variables**
+**3. Environment variables, then the project**
 
-Create the project from Git:
+Set the variables **before the first build**. Shadw checks readiness after building, and the app answers 503 until both Clerk keys are present at runtime, so a deploy without them fails. Shadw's docs say variables can be set when creating a project, or afterwards under **Settings → Environment Variables**.
 
-- Dashboard: **New Project** → paste the repository URL → deploy.
+Production target:
+
+| Name | Value | Available during | Sensitive |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_live_REPLACE_ME` | Build and runtime | No |
+| `CLERK_SECRET_KEY` | `sk_live_REPLACE_ME` | Runtime | Yes |
+| `DATABASE_URL` | `postgres://USER:PASSWORD@HOST:5432/DATABASE` | Runtime | Yes |
+| `DATABASE_SSL` | `require` (only if the provider needs it and the URL does not carry `sslmode`) | Runtime | No |
+| `APP_BASE_URL` | `https://YOUR_DOMAIN` (no trailing slash) | Runtime | No |
+
+Do not set `CLOSE_DESK_DEV_AUTH` or `CLOSE_DESK_DEV_AUTH_SECRET`. If variables are set through the API, pass `"scope": "all"` for the publishable key.
+
+The two Clerk keys decide whether the deploy passes readiness. `DATABASE_URL` is needed as soon as someone signs in. `APP_BASE_URL` is needed for invitation emails.
+
+Then create the project from Git:
+
+- Dashboard: **New Project** → paste the repository URL → add the variables above → deploy.
 - Or API:
 
   ```bash
@@ -233,6 +265,8 @@ Create the project from Git:
     -d '{ "repo_url": "https://github.com/YOUR_ORG/Autheo-Close-Desk", "project": "close-desk", "production": true }'
   ```
 
+If the project already exists, add the variables under **Settings → Environment Variables** and redeploy (dashboard, or `POST https://api.shadw.cloud/v1/projects/close-desk/redeploy`).
+
 Or from a ZIP, where the dashboard offers upload (dashboard check 7). Build the archive from a clean commit so that no local files are included:
 
 ```bash
@@ -241,19 +275,7 @@ git archive --format=zip --output close-desk.zip HEAD
 
 The archive contains `package-lock.json` and no `.env` files, `node_modules` or build output. A clean `npm ci && npm run build` from this archive was verified locally.
 
-Build settings, only if detection needs overriding (**Settings → Build**): install `npm ci`, build `npm run build`, root directory the repository root. Leave the output directory empty.
-
-Environment variables (**Settings → Environment Variables**), production target:
-
-| Name | Value | Available during | Sensitive |
-| --- | --- | --- | --- |
-| `DATABASE_URL` | `postgres://USER:PASSWORD@HOST:5432/DATABASE` | Runtime | Yes |
-| `DATABASE_SSL` | `require` (only if the provider needs it and the URL does not carry `sslmode`) | Runtime | No |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_live_REPLACE_ME` | Build and runtime | No |
-| `CLERK_SECRET_KEY` | `sk_live_REPLACE_ME` | Runtime | Yes |
-| `APP_BASE_URL` | `https://YOUR_DOMAIN` (no trailing slash) | Runtime | No |
-
-Do not set `CLOSE_DESK_DEV_AUTH` or `CLOSE_DESK_DEV_AUTH_SECRET`. If variables are set through the API, pass `"scope": "all"` for the publishable key.
+Build settings were detected automatically. Only if detection ever needs overriding (**Settings → Build**): install `npm ci`, build `npm run build`, root directory the repository root. Leave the output directory empty.
 
 **4. Migrations**
 
@@ -293,6 +315,22 @@ npm run seed:demo -- --reviewer reviewer@your-company.example --approver approve
 ```
 
 Never load real investor data into a demo or preview environment.
+
+### If the deploy fails its readiness check
+
+```text
+Error: api readiness request returned HTTP 503 (body: Autheo Close Desk is unavailable: authentication is not configured. ...)
+```
+
+The build succeeded and the app started, then refused to serve because authentication is not configured. This is the intended fail-closed behaviour, and Shadw does not promote the deployment. The end of the message, and an `[auth]` line in the runtime log, say what to fix:
+
+| Message ends with | Fix |
+| --- | --- |
+| `... not set in the runtime environment.` | Add the named variable for the Production target and make sure it is available at runtime, not only during the build. |
+| `... must start with pk_test_ or pk_live_.` / `... sk_test_ or sk_live_.` | The value is a placeholder, has stray characters, or the two keys are swapped. |
+| `CLOSE_DESK_DEV_AUTH is set in production.` | Remove `CLOSE_DESK_DEV_AUTH`. It is for local development only. |
+
+Then redeploy. There is no setting that makes the app serve without authentication.
 
 ## Post-deploy smoke test
 
