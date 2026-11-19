@@ -4,7 +4,7 @@ import { SignOutControl } from "@/components/sign-out";
 import { Callout } from "@/components/ui";
 import { getAuthConfig } from "@/server/auth/config";
 import { requireUser } from "@/server/auth/session";
-import { NotInvitedError, UnauthenticatedError } from "@/server/errors";
+import { DatabaseUnavailableError, NotInvitedError, UnauthenticatedError } from "@/server/errors";
 import { signInPath } from "@/server/page";
 
 export const metadata: Metadata = { title: "No access" };
@@ -15,6 +15,7 @@ export default async function NoAccessPage() {
     redirect("/offerings");
   } catch (error) {
     if (error instanceof UnauthenticatedError) redirect(signInPath());
+    if (error instanceof DatabaseUnavailableError) redirect("/unavailable");
     if (!(error instanceof NotInvitedError)) throw error;
   }
   return (

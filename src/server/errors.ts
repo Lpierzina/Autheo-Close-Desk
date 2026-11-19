@@ -53,3 +53,19 @@ export class AuthConfigError extends AppError {
     super(message, 503, "auth_not_configured");
   }
 }
+
+/** What stands between the app and its database. Each one maps to a single fix an operator can make. */
+export type DatabaseProblem = "not_configured" | "invalid_url" | "unreachable" | "tls" | "login_refused" | "schema_missing";
+
+/**
+ * The database is not configured, cannot be reached or has no schema, so nothing was read
+ * or written. The message names variables and commands only; it never contains a value.
+ */
+export class DatabaseUnavailableError extends AppError {
+  constructor(
+    readonly problem: DatabaseProblem,
+    message: string,
+  ) {
+    super(message, 503, "database_unavailable", { problem });
+  }
+}

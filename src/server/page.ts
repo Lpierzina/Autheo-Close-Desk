@@ -4,7 +4,7 @@ import { cache } from "react";
 import { getOfferingAccess, type Offering, type OfferingAccess } from "./auth/access";
 import { getAuthConfig } from "./auth/config";
 import { requireUser } from "./auth/session";
-import { NotFoundError, NotInvitedError, UnauthenticatedError } from "./errors";
+import { DatabaseUnavailableError, NotFoundError, NotInvitedError, UnauthenticatedError } from "./errors";
 import { getCloseReadiness, type CloseReadiness } from "./services/approvals";
 import { loadWorkingState, type WorkingState } from "./services/reconciliation";
 import type { AppUser } from "./services/users";
@@ -20,6 +20,8 @@ export const pageUser = cache(async (): Promise<AppUser> => {
   } catch (error) {
     if (error instanceof UnauthenticatedError) redirect(signInPath());
     if (error instanceof NotInvitedError) redirect("/no-access");
+    // Without a database nobody can be recognised. Say what to fix instead of a generic error page.
+    if (error instanceof DatabaseUnavailableError) redirect("/unavailable");
     throw error;
   }
 });

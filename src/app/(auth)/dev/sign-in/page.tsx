@@ -3,8 +3,17 @@ import { notFound } from "next/navigation";
 import { Callout, Pill } from "@/components/ui";
 import { getAuthConfig } from "@/server/auth/config";
 import { query } from "@/server/db";
+import { DATABASE_PROBLEMS } from "@/server/db-errors";
+import { DatabaseUnavailableError, type DatabaseProblem } from "@/server/errors";
 
 export const metadata: Metadata = { title: "Development sign-in" };
+
+interface DevUser {
+  id: string;
+  email: string;
+  display_name: string | null;
+  is_admin: boolean;
+}
 
 /**
  * Local development only. Not reachable in production: the route renders "not found"
@@ -13,9 +22,14 @@ export const metadata: Metadata = { title: "Development sign-in" };
 export default async function DevSignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (process.env.NODE_ENV === "production" || getAuthConfig().mode !== "dev") notFound();
   const { error } = await searchParams;
-  const users = await query<{ id: string; email: string; display_name: string | null; is_admin: boolean }>(
-    "SELECT id, email, display_name, is_admin FROM app_users WHERE status <> 'disabled' ORDER BY is_admin DESC, email",
-  );
+  let users: DevUser[] = [];
+  let problem: DatabaseProblem | null = null;
+  try {
+    users = await query<DevUser>("SELECT id, email, display_name, is_admin FROM app_users WHERE status <> 'disabled' ORDER BY is_admin DESC, email");
+  } catch (error) {
+    if (!(error instanceof DatabaseUnavailableError)) throw error;
+    problem = error.problem;
+  }
   return (
     <div>
       <h1 className="text-[22px] font-semibold tracking-tight text-ink">Development sign-in</h1>
@@ -26,7 +40,11 @@ export default async function DevSignInPage({ searchParams }: { searchParams: Pr
       {error ? (
         <Callout tone="danger" role="alert" className="mt-3" title="That user could not be signed in" />
       ) : null}
-      {users.length === 0 ? (
+      {problem ? (
+        <Callout tone="danger" role="alert" className="mt-3" title={DATABASE_PROBLEMS[problem].summary}>
+          {DATABASE_PROBLEMS[problem].fix}
+        </Callout>
+      ) : users.length === 0 ? (
         <p className="mt-6 text-sm text-ink-2">
           No users yet. Run <code className="rounded bg-paper-2 px-1 py-0.5 text-[13px]">npm run seed:demo -- --dev-users</code> to create the synthetic demo team.
         </p>

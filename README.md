@@ -147,7 +147,7 @@ Limits: CSV only, UTF-8, 4 MB, 20,000 rows, 60 columns. Column names do not have
 ```bash
 npm run lint
 npm run typecheck
-npm test          # 77 tests: 61 unit, 16 integration
+npm test          # 94 tests: 73 unit, 21 integration
 npm run build
 ```
 
@@ -176,6 +176,8 @@ This section separates what was verified locally, what was observed in a real Sh
 | Migrations | `npm run db:migrate`. Separate command. The app never migrates at startup. |
 | Fail closed | A production server without both Clerk keys, or with `CLOSE_DESK_DEV_AUTH=1`, returns 503 for every page and API route. The response text and the server log name the variable to fix, never a value. `/api/health` returns 503 with `{"status":"closed","reason":"auth_not_configured"}`. |
 | Clerk | Against a temporary Clerk development instance and a production build: CLI invitation of the first administrator, invitation acceptance, invitations from the Team page, imports, approval, downloads, and refusal of a Clerk account that was not invited. |
+| Database not ready | A production build with Clerk configured and a signed-in session, run against: no `DATABASE_URL`, a database that was never migrated, a closed port, a certificate that cannot be verified, and a wrong password. Each page request redirects to `/unavailable`, which names the problem and the fix; each API request returns 503 `database_unavailable`; the server log gets one `[db]` line. After `npm run db:migrate` and `npm run user:invite`, the same session reaches **Offerings**. See [If signed-in pages cannot use the database](#if-signed-in-pages-cannot-use-the-database). |
+| Behind a proxy | With `X-Forwarded-Host` and `X-Forwarded-Proto` set, as on Shadw, the signed-out redirect carries a return address on the public host. |
 
 ### What Shadw documents
 
@@ -190,6 +192,8 @@ This section separates what was verified locally, what was observed in a real Sh
 
 From the build log of the first production deploy of `main` (2026-11-19, region `san-jose`). That deploy was not promoted: its readiness check failed because the Clerk variables were not set. See [If the deploy fails its readiness check](#if-the-deploy-fails-its-readiness-check).
 
+A later deploy, with the keys of a Clerk development instance set, passed readiness and was promoted. The "Signed out", "Port and proxy" and "Signed in" rows are from that deployment on 2026-11-19.
+
 | Item | What the log showed |
 | --- | --- |
 | Detection | "Detected framework: Next.js — primitive: Hybrid, package manager: npm". No build settings were needed. |
@@ -198,7 +202,10 @@ From the build log of the first production deploy of `main` (2026-11-19, region 
 | Start | Shadw provisions the server itself: `node node_modules/next/dist/bin/next start`. This is the same server as `npm start`. No start command was asked for. |
 | Request proxy | "middleware: true". `src/proxy.ts` also ran at runtime: the readiness response was the proxy's 503 text. |
 | Readiness | After the build, Shadw sends a request to the server and fails the deploy on HTTP 503. The log does not show which path it requests or which statuses it accepts. |
-| Not shown | The Node.js version, and whether `PORT` is supplied. |
+| Signed out | `/api/health` 200 `{"status":"ok"}`, `/api/offerings` 401, `/offerings` 307 to `/sign-in`. |
+| Port and proxy | The server listens on a port Shadw chooses (38683 on that deployment), behind a proxy that forwards the public host. The app's own redirect had exposed `https://localhost:38683` as the return address; that is fixed. |
+| Signed in | `/offerings` showed "This page could not be loaded", with React error #441 in the browser console. That error only says that the server failed to render the page. The cause was not read from Shadw's runtime log. Locally, a production build shows exactly this screen whenever the database is not configured, not reachable or not migrated, and no database setup had been confirmed for this deployment. Later builds name the database setting to fix instead. See [If signed-in pages cannot use the database](#if-signed-in-pages-cannot-use-the-database). |
+| Not shown | The Node.js version. |
 
 ### Dashboard checks
 
@@ -206,9 +213,9 @@ Shadw's public documentation does not state the following. Confirm each in the d
 
 | # | Check | Why it matters |
 | --- | --- | --- |
-| 1 | **`PORT`.** Shadw starts the server itself (see [Observed on Shadw](#observed-on-shadw)) and that server answered the readiness request, so no start command or port setting was needed. Neither the docs nor the build log say whether `PORT` is supplied. `next start` honours `PORT` if it is, and uses 3000 if it is not. | Requested verification. Nothing to set unless a deploy reports a port error. |
+| 1 | **`PORT`.** Shadw starts the server itself (see [Observed on Shadw](#observed-on-shadw)) and that server answered on a port Shadw chose, so no start command or port setting was needed. The docs do not say how the port is passed. `next start` honours `PORT`, and uses 3000 without it. | Requested verification. Nothing to set unless a deploy reports a port error. |
 | 2 | **Node.js version** used for build and runtime is 20.9 or newer (22 preferred). | Next.js 16 requires it. |
-| 3 | **Readiness check**: which path Shadw requests and which statuses it accepts. Only a 503 has been observed to fail it. With authentication configured, a signed-out request gets 307 to `/sign-in` on `/` and 200 on `/api/health`. If a deploy fails readiness with a status other than 503 and Shadw offers a health-check path, `/api/health` is the route meant for it. | A redirect on `/` is the expected signed-out answer. Whether Shadw counts it as ready is not known. |
+| 3 | **Readiness check**: which path Shadw requests and which statuses it accepts. A 503 fails it. A deploy with authentication configured passed it; a signed-out request then gets 307 to `/sign-in` on `/` and 200 on `/api/health`. If a deploy fails readiness with a status other than 503 and Shadw offers a health-check path, `/api/health` is the route meant for it. | Readiness does not sign in, so it passes without a database. A deploy can be live and still unable to load a page. |
 | 4 | **Request body limit** allows at least 5 MB. | Import files can be up to 4 MB. |
 | 5 | **Managed Postgres**: the name under which the connection URL is exposed (the app reads `DATABASE_URL`), whether it must be added to the project by hand, whether TLS is required, and whether the database accepts connections from outside Shadw. | Decides how migrations and the invite command are run. See step 4. |
 | 6 | **Connection limit** of the database plan against the number of app instances. Each instance opens up to `DATABASE_POOL_MAX` connections (default 5). | Serverless instances scale out. |
@@ -251,7 +258,7 @@ Production target:
 
 Do not set `CLOSE_DESK_DEV_AUTH` or `CLOSE_DESK_DEV_AUTH_SECRET`. If variables are set through the API, pass `"scope": "all"` for the publishable key.
 
-The two Clerk keys decide whether the deploy passes readiness. `DATABASE_URL` is needed as soon as someone signs in. `APP_BASE_URL` is needed for invitation emails.
+The two Clerk keys decide whether the deploy passes readiness. `DATABASE_URL` is needed as soon as someone signs in: without it, or before step 4 has run, every signed-in page shows "Close Desk cannot use its database" with the setting to fix. `APP_BASE_URL` is needed for invitation emails.
 
 Then create the project from Git:
 
@@ -332,13 +339,36 @@ The build succeeded and the app started, then refused to serve because authentic
 
 Then redeploy. There is no setting that makes the app serve without authentication.
 
+### If signed-in pages cannot use the database
+
+The deploy is live and sign-in works, but every page shows **Close Desk cannot use its database**. The readiness check does not sign in, so it cannot catch this. The page, the API (503, code `database_unavailable`) and a `[db]` line in the runtime log all give the same reason:
+
+```text
+[db] Database unavailable (schema_missing, 42P01): The database is reachable, but the Close Desk tables are missing or out of date. Run npm run db:migrate against this database. The app never migrates on its own.
+```
+
+| The page says | Fix |
+| --- | --- |
+| `DATABASE_URL is not set in the runtime environment.` | Add `DATABASE_URL` for the Production target, available at runtime, and redeploy (deploy step 3). |
+| `DATABASE_URL is not a valid PostgreSQL connection URL.` | Use `postgres://USER:PASSWORD@HOST:5432/DATABASE`. Percent-encode special characters in the password. |
+| `The database server did not accept a connection.` | Check the host and port, that the database is running, and that it accepts connections from the deployment (dashboard check 5). |
+| `The TLS handshake with the database failed.` | Set `DATABASE_SSL` to `require`, `no-verify` or `disable` to match the provider. A URL with `sslmode=require` verifies the certificate; a provider whose certificate cannot be verified needs `DATABASE_SSL=no-verify`. |
+| `The database refused the login in DATABASE_URL.` | Check the user, password and database name. If the provider only accepts TLS, set `DATABASE_SSL=require`. |
+| `The database is reachable, but the Close Desk tables are missing or out of date.` | Run `npm run db:migrate` against that database (deploy step 4). |
+
+The text names variables and commands only. The log line adds the driver's error code (here `42P01`), never its message, because driver messages carry the host, the user and the database name. Select **Try again** after the fix; no redeploy is needed for a migration.
+
+Once the database answers, a person who has not been invited sees **You do not have access**. That is the expected answer until deploy step 5 has been run for their email address.
+
+A build from before this section was added shows **This page could not be loaded** for all of these cases, with `Minified React error #441` in the browser console. The reason is then only in the server's log, on the line that starts with `⨯ Error:`.
+
 ## Post-deploy smoke test
 
 Use the synthetic example files from **File guide**. About ten minutes.
 
 1. **Closed by default.** In a private window open `https://YOUR_DOMAIN/offerings`. Expect a redirect to `/sign-in`. Run `curl -i https://YOUR_DOMAIN/api/offerings`. Expect `401`.
 2. **Health.** `curl -i https://YOUR_DOMAIN/api/health`. Expect `200` and `{"status":"ok"}`. A `503` means the Clerk keys are missing or malformed. The endpoint does not test the database; step 3 does.
-3. **Sign-in.** Accept the administrator invitation from the email. Expect to land on **Offerings**. Open `https://YOUR_DOMAIN/accept-invitation` without an invitation link in a private window. Expect "Invitation required" and no sign-up form.
+3. **Sign-in.** Accept the administrator invitation from the email. Expect to land on **Offerings**. "Close Desk cannot use its database" means the database is not ready; the page says which setting to fix (see [If signed-in pages cannot use the database](#if-signed-in-pages-cannot-use-the-database)). "You do not have access" means this email address has not been invited. Open `https://YOUR_DOMAIN/accept-invitation` without an invitation link in a private window. Expect "Invitation required" and no sign-up form.
 4. **Team.** Invite a reviewer and an approver from **Team**. Create a test offering. Add both under **Access**.
 5. **Imports.** As the reviewer, download the three example files from **File guide** and import each one. On the funding file, tick the box to leave out the one invalid row. Expect 50, 61 and 48 new records. **Overview** shows 39 ready, 6 needs review, 7 blocked, and totals of $5,090,000.00, $4,750,000.00 and $5,000,000.00.
 6. **Idempotency.** Import the funding file again. Expect 0 new records and unchanged totals.
@@ -355,7 +385,7 @@ Use the synthetic example files from **File guide**. About ten minutes.
 - **Authorization** is checked on the server in every route handler and page, per offering and per role. State-changing requests from another origin are rejected.
 - **Imports** are validated for size, extension, encoding and structure, parsed in memory, and stored as database rows. Files are not kept on disk.
 - **Exports** are served only to members of the offering, with `Cache-Control: no-store, private`. Approved versions are served from the frozen bytes.
-- **Logging** contains event names, identifiers and counts. Request bodies, file contents and database error parameters are not logged.
+- **Logging** contains event names, identifiers and counts. Request bodies, file contents and database error parameters are not logged. A database that cannot be used is logged with the driver's error code only.
 - **Secrets** are read from environment variables only. `.env*` files are ignored by git except `.env.example`.
 - **Database**: triggers forbid changing the content of a source record or deleting one, and make import batches, decisions, snapshots and audit events append-only.
 - Response headers set a frame ban, `nosniff`, a referrer policy, a permissions policy and `noindex` (`next.config.ts`).

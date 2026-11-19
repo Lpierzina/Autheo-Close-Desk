@@ -23,7 +23,9 @@ const clerk = clerkMiddleware(
     const { userId, redirectToSignIn } = await auth();
     if (userId) return;
     if (request.nextUrl.pathname.startsWith("/api/")) return unauthenticatedApi();
-    return redirectToSignIn({ returnBackUrl: request.url });
+    // No returnBackUrl: Clerk then builds it from the forwarded host. Behind a reverse proxy
+    // request.url is the server's internal address, which the browser cannot return to.
+    return redirectToSignIn();
   },
   // Clerk reads CLERK_SECRET_KEY from the environment itself. Only non-secret options are passed here.
   () => ({
