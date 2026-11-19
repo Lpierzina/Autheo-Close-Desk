@@ -1,407 +1,253 @@
 # Autheo Close Desk
 
-A private web app for the operations team of a multifamily real estate sponsor. It reconciles three CSV files from one apartment offering (subscriptions, funding, approved allocations) and produces a reviewed, frozen ownership register for the sponsor's administrator to accept.
+Reconcile an apartment equity raise before closing.
 
-**Workflow:** Create offering → Import three files → Reconcile → Review exceptions → Approve and freeze → Export.
+Close Desk is for multifamily sponsors who raise outside investor equity to buy apartment communities, and
+for the operations person who has to get the ownership register right before closing. It compares three CSV
+files, shows what does not match, and produces a reviewed register export for the fund administrator.
 
-**Out of scope for this pilot, by design:** bank APIs, wallets, token issuance, payment execution or refunds, L1, THEO, custody and live settlement. The export is a reviewed input for the administrator. It is not the official legal register.
-
-## Contents
-
-- [What it does](#what-it-does)
-- [Local development](#local-development)
-- [Demo walkthrough](#demo-walkthrough)
-- [Roles and access](#roles-and-access)
-- [Import files](#import-files)
-- [Reconciliation rules](#reconciliation-rules)
-- [Tests](#tests)
-- [Deploying to Shadw.cloud](#deploying-to-shadwcloud)
-- [Post-deploy smoke test](#post-deploy-smoke-test)
-- [Security notes](#security-notes)
-- [Project layout](#project-layout)
-
-## What it does
-
-| Area | Behaviour |
+| Question | File |
 | --- | --- |
-| Imports | CSV upload with column mapping, a preview, invalid rows, row counts and totals before anything is saved. Re-importing a file adds nothing. A changed record with an existing reference goes to review; it never overwrites the source. |
-| Reconciliation | One row per subscription and share class. Matches only on subscription ID or an explicit payment reference. Counts cleared funding only, net of linked reversals. Never nets different currencies. Exact decimal arithmetic throughout. |
-| Review | Side panel with the subscription, funding records and approved allocation side by side, the source file and row behind each figure, the variance, and earlier decisions. Reviewers document exceptions, link or exclude payments, and choose between conflicting source versions. Hard blockers need corrected source data. |
-| Approval | Enforced on the server. Freezes a numbered snapshot holding the exact CSV bytes and their SHA-256. Later imports and decisions cannot change an approved version. |
-| Export | Ownership register CSV and exception report CSV per approved version. Text cells that could be read as spreadsheet formulas are neutralised. |
-| Audit | Imports, decisions, approvals and downloads are logged with identifiers and counts only, never investor records. |
+| 1. Did they sign? | Subscription records |
+| 2. Did their money clear? | Bank or escrow records |
+| 3. How many LLC units did the sponsor approve? | Approved allocations |
 
-## Local development
+Close Desk is an off-chain reconciliation tool. It never moves money, issues units or initiates a refund,
+and its output is a reviewed register export for your administrator, not the official legal register.
 
-Requirements: Node.js 20.9 or newer (developed and verified on Node 22), npm 10, PostgreSQL 14 or newer (verified on 16).
+## The pilot runs entirely in the browser
+
+The app is a static site. The host serves HTML, JavaScript, CSS, one font and the sample CSVs. Reading,
+parsing, column mapping, matching, exception review, confirmation and CSV generation all happen in the open
+browser tab, in memory.
+
+- There is no server runtime, API route, server action, database, cloud storage or sign-in.
+- Nothing is written to `localStorage`, `sessionStorage`, IndexedDB, the Cache API or cookies, and there is
+  no service worker.
+- There are no analytics, session replay, remote error reporting or third-party scripts. The font
+  (`@fontsource-variable/inter`), icons and sample files are bundled.
+- Downloads are built in the tab as `Blob` URLs. They are revoked by **Clear session** and after 60 seconds.
+- A refresh, or closing the tab, ends the session. Nothing is restored.
+- After the workspace has loaded, the whole workflow makes no network request at all, so it also works
+  offline. Links inside the app do not prefetch, and "Column details" opens the file guide in a new tab.
+
+A Content-Security-Policy restricts scripts, styles, fonts and connections to the app's own origin and
+forbids form submission, frames and workers. It ships twice: as a `<meta>` tag in every page (so it holds
+even if the host drops response headers) and as response headers (`security-headers.json` is the single
+source for the meta tag, `scripts/serve.mjs` and `vercel.json`).
+
+The earlier build had sign-in (Clerk), PostgreSQL storage and server uploads. All of that was removed for
+the pilot and is recoverable from commit `935cd1d`. Because there is no sign-in, anyone with the URL can open
+the app; there is nothing on the server for them to see, and the only data the site ships is the synthetic
+sample deal.
+
+### How each claim is tested
+
+The privacy sentence in the UI ("Your files are processed in this browser. They aren't sent to Autheo or
+stored on our servers.") is backed by these tests, which run against the production build:
+
+| Claim | Test |
+| --- | --- |
+| No request is made between selecting files and downloading the exports; no request ever carries a unique marker placed in the file contents, file names, deal name and review notes | `tests/e2e/privacy.spec.ts` "nothing is requested…" |
+| Nothing loads from another origin; no third-party script | `privacy.spec.ts` "the app loads nothing from another origin…" |
+| The network recorder would have seen a request, and the page cannot reach another origin | `privacy.spec.ts` "control: …" |
+| The in-page policy works when the host sends no security headers | `privacy.spec.ts` "the policy inside the page…" |
+| The bundled server answers only GET and HEAD; the legacy API paths are gone | `privacy.spec.ts` "the server refuses anything that could carry data" |
+| The full sample workflow runs with the browser offline and exports the known-good register | `privacy.spec.ts` "offline: …" |
+| A refresh starts a new session; storage, cookies, caches, IndexedDB and service workers are empty | `privacy.spec.ts` "a refresh starts a new session…" |
+| Another tab does not see the session | `privacy.spec.ts` "a second tab…" |
+| Clear session resets files, mappings, decisions, the confirmation and download references | `privacy.spec.ts` "Clear session resets…" |
+| Source code uses no storage, network or worker API, and the repo has no API route or server package | `tests/unit/browser-only.test.ts` |
+
+## Screens
+
+| Route | What it is |
+| --- | --- |
+| `/` | What the product is, the three questions, the two calls to action, the $100,000 / $90,000 example, and a small "Custom tokenization · Coming soon" section |
+| `/reconcile` | The workspace: **Select files → Review matches → Resolve exceptions → Export** |
+| `/guide` | Accepted columns for each file, the matching rules, and the sample CSVs |
+| `/tokenization` | Information only. No form, no wallet, no files |
+
+Workspace steps:
+
+1. **Select files.** Three slots, one per question. Each selected file is checked and previewed first: row
+   counts, valid and invalid rows with reasons, totals, the first rows, and a column mapping when the headers
+   differ. Nothing enters the workspace until you choose "Add files". A second file for a slot adds
+   corrections; rows already present are not counted twice, and a row that changes an existing record goes to
+   review instead of overwriting it.
+2. **Review matches.** Signed subscriptions, net cleared funds and approved allocations as three separate
+   totals, and a searchable, sortable table with one row per subscription and share class. "Needs review" is
+   one click away.
+3. **Resolve exceptions.** The three source records side by side, the difference in plain English, and one
+   card per exception. Review items take a decision and a note. Blockers need corrected source data; a note
+   cannot clear them.
+4. **Export.** Confirm the reviewed snapshot, then download the reviewed register export and a separate
+   exceptions report. The register is blocked while any blocker or undecided item remains; a draft exceptions
+   report is always available. Any later change to files, mappings, deal settings or decisions cancels the
+   confirmation.
+
+### Matching rules
+
+- A payment is matched on the subscription ID it carries, or on a payment reference that the subscription
+  file states. Otherwise it stays unmatched until a reviewer links it to a named subscription. Nothing is
+  matched on investor name or amount.
+- Money is exact decimal arithmetic (`decimal.js`), never floating point.
+- Split payments are summed. Pending and failed payments are shown and not counted. A reversal nets against
+  the payment it names. A repeated transaction reference is counted once.
+- Approved amounts and units come from the allocations file as supplied. Close Desk never calculates or
+  changes them. Where cleared funds exceed the approved amount, the register carries the approved amount.
+- Cells that a spreadsheet would run as a formula are neutralised in both downloads.
+
+## Synthetic demo path
+
+All sample data is invented (Riverbend Flats Apartments, USD). "Try with sample data" on the home page loads
+the three sample files and shows a short walkthrough at the top of the workspace.
+
+The guided case is **SUB-1012** (investor ref INV-0412, Class A): signed for $100,000.00, cleared
+$100,000.00 across two wires (WIRE-20517 $60,000.00 and WIRE-20518 $40,000.00), approved by the sponsor for
+$90,000.00 / 90 units. Close Desk explains the +$10,000.00 variance, requires a review decision, and exports
+only the approved line: `INV-0412,Class A,SUB-1012,90000.00,90,USD`.
+
+1. Home → **Try with sample data**. The workspace opens on Select files with the three sample files
+   selected and previewed (subscriptions 50 rows, funding 63 rows with one invalid row and one exact repeat,
+   allocations 48 rows). **Add 3 files and review matches**: 52 rows (39 ready, 6 needs review, 7 blocked);
+   signed $5,090,000.00, net cleared $4,750,000.00, approved $5,000,000.00.
+2. Open **SUB-1012**, read the difference, enter a review note, **Record review decision**.
+3. Decide the other review items: exclude the duplicate portal payment `PORTAL-88120` on SUB-1034; link
+   `WIRE-20338` to SUB-1038 and `WIRE-20341` to SUB-1041; document SUB-1044 and SUB-1048.
+4. Open **Export**. The register is blocked and the reasons are listed. The draft exceptions report can be
+   downloaded.
+5. In the walkthrough choose **Select sample correction files**. The funding correction uses a bank portal's
+   headers, so map **Amount** to "Credit Amount", then add both files.
+6. In Resolve exceptions, choose **Use the version from the later file** on SUB-1019, SUB-1023, SUB-1031 and
+   SUB-1046.
+7. **Export** → tick the review statement → **Confirm reviewed snapshot** → download both files. The register
+   has 47 lines totalling $5,000,000.00 and equals `fixtures/demo/expected/ownership-register.csv`.
+
+Sample files live in `fixtures/demo/` and are regenerated with `npm run fixtures:generate`.
+
+## Develop and test
+
+Node 22 (`.nvmrc`).
 
 ```bash
-# 1. Databases (one for development, one for tests)
-sudo -u postgres psql -c "CREATE ROLE closedesk LOGIN PASSWORD 'closedesk'"
-sudo -u postgres createdb -O closedesk closedesk_dev
-sudo -u postgres createdb -O closedesk closedesk_test
-
-# 2. Dependencies and environment
 npm ci
-cp .env.example .env.local
-```
-
-Edit `.env.local` for local use:
-
-```bash
-DATABASE_URL=postgres://closedesk:closedesk@127.0.0.1:5432/closedesk_dev
-CLOSE_DESK_DEV_AUTH=1
-APP_BASE_URL=http://localhost:3000
-```
-
-```bash
-# 3. Schema, synthetic demo data, dev server
-npm run db:migrate
-npm run seed:demo -- --dev-users
-npm run dev
-```
-
-Open <http://localhost:3000>. With `CLOSE_DESK_DEV_AUTH=1` and `NODE_ENV` other than `production`, `/dev/sign-in` lists three synthetic local users (administrator, reviewer, approver). That screen and its API do not exist in a production build, and setting the variable in production closes the app. To develop against Clerk instead, remove `CLOSE_DESK_DEV_AUTH` and set the two Clerk keys.
-
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` / `npm start` | Production build / production server (`next start`) |
-| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
-| `npm test` | Unit and integration tests (needs the test database) |
-| `npm run db:migrate` / `npm run db:status` | Apply / list migrations. Never run by the app itself. |
-| `npm run user:invite -- --email <address> [--name "Full Name"] [--admin]` | Invite a user. This is how the first administrator is created. |
-| `npm run seed:demo -- --reviewer <email> --approver <email>` | Load the synthetic demo offering for two users who are already invited. `--dev-users` creates local dev users instead. `--confirm` is required for a non-local database. |
-| `npm run fixtures:generate` | Regenerate the synthetic fixtures |
-
-## Demo walkthrough
-
-`npm run seed:demo` loads **Riverbend Flats Apartments**, a fictional $5,000,000 offering, by importing the three example files through the same code path as the import screen. All data is invented: investor references are opaque codes, with no names, tax IDs or bank details. Demo data exists only after someone runs the seed command.
-
-Starting position: 52 rows (39 ready, 6 need review, 7 blocked). Signed commitments $5,090,000.00, net cleared funding $4,750,000.00, approved allocations $5,000,000.00.
-
-**Guided case, SUB-1012.** The investor signed for $100,000, sent two cleared wires (WIRE-20517 $60,000 and WIRE-20518 $40,000), and was approved for $90,000.
-
-1. Sign in as the reviewer, open the offering, open **Reconciliation** and select **Needs review**.
-2. Open SUB-1012. The panel shows requested $100,000.00, net cleared $100,000.00, approved $90,000.00, 90 units, and a variance of +$10,000.00, with the file and row behind each figure.
-3. Write a note and select **Document exception**. The register carries $90,000.00 and 90 units from the allocations file. Close Desk does not initiate a refund.
-
-**The other exceptions in the demo**
-
-| Row | Exception | How it is cleared |
-| --- | --- | --- |
-| SUB-1034 | Possible duplicate payment, excess funding | Reviewer excludes PORTAL-88120 |
-| SUB-1044 | Cleared funding, no allocation | Reviewer documents it. Not in the register. |
-| SUB-1048 | Unsigned, no allocation | Reviewer documents it. Not in the register. |
-| WIRE-20338 | Payment reference maps to no subscription | Reviewer links it to SUB-1038 |
-| WIRE-20341 | Payment reference maps to two subscriptions | Reviewer links it to SUB-1041 |
-| SUB-1019 | Unsigned with an approved allocation (blocker) | Import `corrections/subscriptions-corrections.csv`, then accept the newer record |
-| SUB-1023 | Funding still pending (blocker) | Import `corrections/funding-corrections.csv`, then accept the newer record |
-| SUB-1031 | Reversal points at an unknown transaction (blocker) | Same funding corrections file |
-| SUB-1046 | Funding in CAD against a USD allocation (blocker) | Same funding corrections file |
-| SUB-1036 | Allocation with no cleared funding (blocker) | Same funding corrections file (adds WIRE-20336) |
-
-`funding-corrections.csv` uses a bank portal's column names. On the mapping step, set **Amount** to `Credit Amount` and **Payment reference** to `Wire Memo`; the other columns are matched automatically.
-
-When everything is cleared, the approver opens **Approval and export**, reviews the close summary, and approves version 1: 47 register lines, $5,000,000.00 (Class A 3,349.5 units, $3,349,500.00; Class B 1,320.4 units, $1,650,500.00). The downloaded register matches `fixtures/demo/expected/ownership-register.csv` line for line. The export uses CRLF line endings; the fixture uses LF.
-
-## Roles and access
-
-Access is invitation-only. A person can use Close Desk only if a workspace administrator has invited their email address. There is no sign-up page, no default account and no demo login.
-
-| Role | Scope | Can |
-| --- | --- | --- |
-| Workspace administrator | Whole workspace | Create offerings, invite and disable people, manage offering access, view every offering. Holds no reviewer or approver rights unless added to an offering. |
-| Reviewer | One offering | Import files, record and revoke review decisions |
-| Approver | One offering | Approve and freeze a close |
-
-A person holds one role per offering, so the reviewer and the approver of a close are different people. Any member of an offering can view it and download its approved exports. Requests for an offering the user does not belong to return 404.
-
-Every page, API route and download checks the session and the offering role on the server. A valid Clerk session whose verified email is not on the invitation list is refused (403 from the API, `/no-access` in the browser).
-
-## Import files
-
-Example files are in `fixtures/demo/` and can be downloaded in the app from **File guide**, which also explains each field.
-
-| File | Required columns | Optional columns |
-| --- | --- | --- |
-| Subscriptions | `subscription_id`, `investor_ref`, `share_class`, `requested_amount`, `currency`, `signature_status` | `payment_reference` |
-| Funding | `transaction_ref`, `amount`, `currency`, `settlement_status`, `settled_at`, and `subscription_id` or `payment_reference` | `original_transaction_ref` (the transaction a reversal reverses) |
-| Approved allocations | `subscription_id`, `share_class`, `approved_amount`, `approved_units`, `currency` | |
-
-Limits: CSV only, UTF-8, 4 MB, 20,000 rows, 60 columns. Column names do not have to match: the mapping step lets the operator pick the source column for each field and shows a preview before import. Files are parsed in memory and stored as rows in PostgreSQL. Nothing is written to the host filesystem.
-
-## Reconciliation rules
-
-- Money and units are decimal strings handled with `decimal.js`. No floating-point arithmetic. Approved units come from the allocations file only and are never derived from funded dollars.
-- Funding matches a subscription by `subscription_id`, or by a `payment_reference` that maps to exactly one subscription, or by an explicit reviewer link. Nothing is matched by name or amount.
-- Only cleared funding counts. A cleared reversal reduces funding only when it references a known, cleared original transaction in the same currency and on the same subscription, and reversals never exceed the original amount. Any other reversal is flagged as invalid and is not netted.
-- Amounts in another currency are shown separately and never netted.
-- **Blockers** need corrected source data: unsigned subscription with an allocation, unfunded allocation, partial funding, allocation above the commitment, allocation without a subscription, share class mismatch, currency mismatch, invalid reversal. A reviewer note cannot clear a blocker.
-- **Review items** need a documented decision: excess funding, missing allocation, unsigned subscription without an allocation, possible duplicate, unmatched funding, ambiguous reference, conflicting source record.
-- Source records are never edited. Decisions are stored separately, are append-only, and are tied to the facts they were made against. If the underlying figures change, the decision no longer applies and the exception reopens.
-- Approval recomputes the reconciliation inside the approval transaction and refuses if anything is open or if the data changed since the approver loaded the summary.
-
-## Tests
-
-```bash
+npm run dev          # http://localhost:3000
 npm run lint
 npm run typecheck
-npm test          # 94 tests: 73 unit, 21 integration
-npm run build
+npm test             # unit and session tests (vitest)
+npm run build        # static export to out/
+npm run test:e2e     # browser tests against out/ (needs the build first)
+npm run check        # all of the above, in order
+npm run test:scale   # timing at the 20,000-row limit
 ```
 
-Integration tests call the real route handlers against PostgreSQL (`TEST_DATABASE_URL`, default `postgres://closedesk:closedesk@127.0.0.1:5432/closedesk_test`; the name must contain `test` because every table is truncated). Only the identity provider is replaced. They cover the five acceptance points:
+The browser tests use an installed Google Chrome. To use Playwright's Chromium instead:
+`npx playwright install chromium && E2E_BROWSER_CHANNEL=chromium npm run test:e2e`. They start
+`scripts/serve.mjs` on `127.0.0.1:4173`, so that port must be free.
 
-1. An invited user imports the three sample files and reconciles the offering end to end. A visitor without a session, or with a session but no invitation, gets nothing.
-2. Re-importing funding does not count a wire twice. Split payments, linked and invalid reversals, ambiguous and unmapped references, conflicting records, and the $10,000 variance behave as specified.
-3. Open blockers and unreviewed exceptions prevent approval. A note cannot clear a blocker. Reviewer and approver permissions are separate. A user cannot reach another offering. An approved snapshot is byte-for-byte unchanged after later imports and decisions.
-4. The exported register matches the known-good fixture by investor and share class, including units and totals, and line for line.
-5. The production build passes (`npm run build`).
+Layout:
 
-## Deploying to Shadw.cloud
+- `src/domain/` – CSV parsing, normalisation, matching, exceptions, explanations, exports. No browser or
+  Node APIs; shared by the app and the tests.
+- `src/session/` – the in-memory session: staged files, mappings, records, decisions, confirmation.
+- `src/components/workspace/` – the four workspace steps.
+- `tests/unit`, `tests/session` – 98 tests, including the acceptance suite that compares the export with
+  the known-good register. `tests/e2e` – 26 browser tests.
 
-This section separates what was verified locally, what was observed in a real Shadw build, and what must still be confirmed in the Shadw dashboard.
+### Limits and the Web Worker decision
 
-**Sources.** Shadw statements below come from its public pages as read on 2026-11-18: <https://shadw.cloud/docs/getting-started>, <https://shadw.cloud/docs/api-reference> and <https://shadw.cloud/llms.txt>. App statements were verified locally on Node 22.23.4, npm 10.9.9 and PostgreSQL 16.15. The first Shadw build of `main` ran on 2026-11-19; what its log showed is listed under [Observed on Shadw](#observed-on-shadw).
+A file can be up to 4 MB, 20,000 data rows and 60 columns. Everything runs on the main thread; no Web Worker
+is used (and the Content-Security-Policy forbids them). Measured with three 20,000-row files:
 
-### Verified locally
-
-| Item | Result |
-| --- | --- |
-| Install | `npm ci` |
-| Build | `npm run build` (`next build`). Passes with no database and no Clerk keys present. |
-| Start | `npm start` (`next start`). Honours `PORT` (checked with `PORT=4123`) and listens on all interfaces. Defaults to 3000. |
-| Runtime | Node.js 20.9 or newer (`engines` in `package.json`). `.nvmrc` names Node 22, the version this was verified on. |
-| Migrations | `npm run db:migrate`. Separate command. The app never migrates at startup. |
-| Fail closed | A production server without both Clerk keys, or with `CLOSE_DESK_DEV_AUTH=1`, returns 503 for every page and API route. The response text and the server log name the variable to fix, never a value. `/api/health` returns 503 with `{"status":"closed","reason":"auth_not_configured"}`. |
-| Clerk | Against a temporary Clerk development instance and a production build: CLI invitation of the first administrator, invitation acceptance, invitations from the Team page, imports, approval, downloads, and refusal of a Clerk account that was not invited. |
-| Database not ready | A production build with Clerk configured and a signed-in session, run against: no `DATABASE_URL`, a database that was never migrated, a closed port, a certificate that cannot be verified, and a wrong password. Each page request redirects to `/unavailable`, which names the problem and the fix; each API request returns 503 `database_unavailable`; the server log gets one `[db]` line. After `npm run db:migrate` and `npm run user:invite`, the same session reaches **Offerings**. See [If signed-in pages cannot use the database](#if-signed-in-pages-cannot-use-the-database). |
-| Behind a proxy | With `X-Forwarded-Host` and `X-Forwarded-Proto` set, as on Shadw, the signed-out redirect carries a return address on the public host. |
-
-### What Shadw documents
-
-- Deploy from Git (dashboard **New Project**, paste a Git URL; or `POST https://api.shadw.cloud/v1/git/deploy`), from a zip upload, or from a container image.
-- Framework detection covers Next.js. Shadw runs install and build and serves the output as static assets plus a serverless server. **Settings → Build** can override the install command, build command, output directory and root directory.
-- If a `Dockerfile` is present, Shadw builds and runs it as a container instead. **This repository deliberately has no Dockerfile**, so the Next.js path is used.
-- **Settings → Environment Variables**: in the dashboard, "Available during" defaults to build and runtime. Through the API a variable is runtime-only unless `"scope": "build"` or `"scope": "all"` is passed. Variables marked Sensitive are encrypted at rest.
-- Managed Postgres with a per-database connection URL, provisioned from the dashboard.
-- Each deployment has its own URL. The latest production deploy owns the project domain. Promoting an earlier deployment rolls back.
-
-### Observed on Shadw
-
-From the build log of the first production deploy of `main` (2026-11-19, region `san-jose`). That deploy was not promoted: its readiness check failed because the Clerk variables were not set. See [If the deploy fails its readiness check](#if-the-deploy-fails-its-readiness-check).
-
-A later deploy, with the keys of a Clerk development instance set, passed readiness and was promoted. The "Signed out", "Port and proxy" and "Signed in" rows are from that deployment on 2026-11-19.
-
-| Item | What the log showed |
-| --- | --- |
-| Detection | "Detected framework: Next.js — primitive: Hybrid, package manager: npm". No build settings were needed. |
-| Install | `npm ci --no-audit --no-fund`. Passed. |
-| Build | `npm run build`. Passed. |
-| Start | Shadw provisions the server itself: `node node_modules/next/dist/bin/next start`. This is the same server as `npm start`. No start command was asked for. |
-| Request proxy | "middleware: true". `src/proxy.ts` also ran at runtime: the readiness response was the proxy's 503 text. |
-| Readiness | After the build, Shadw sends a request to the server and fails the deploy on HTTP 503. The log does not show which path it requests or which statuses it accepts. |
-| Signed out | `/api/health` 200 `{"status":"ok"}`, `/api/offerings` 401, `/offerings` 307 to `/sign-in`. |
-| Port and proxy | The server listens on a port Shadw chooses (38683 on that deployment), behind a proxy that forwards the public host. The app's own redirect had exposed `https://localhost:38683` as the return address; that is fixed. |
-| Signed in | `/offerings` showed "This page could not be loaded", with React error #441 in the browser console. That error only says that the server failed to render the page. The cause was not read from Shadw's runtime log. Locally, a production build shows exactly this screen whenever the database is not configured, not reachable or not migrated, and no database setup had been confirmed for this deployment. Later builds name the database setting to fix instead. See [If signed-in pages cannot use the database](#if-signed-in-pages-cannot-use-the-database). |
-| Not shown | The Node.js version. |
-
-### Dashboard checks
-
-Shadw's public documentation does not state the following. Confirm each in the dashboard or with Shadw support. No setting has been invented here.
-
-| # | Check | Why it matters |
+| | Node (`npm run test:scale`) | Chrome, production build |
 | --- | --- | --- |
-| 1 | **`PORT`.** Shadw starts the server itself (see [Observed on Shadw](#observed-on-shadw)) and that server answered on a port Shadw chose, so no start command or port setting was needed. The docs do not say how the port is passed. `next start` honours `PORT`, and uses 3000 without it. | Requested verification. Nothing to set unless a deploy reports a port error. |
-| 2 | **Node.js version** used for build and runtime is 20.9 or newer (22 preferred). | Next.js 16 requires it. |
-| 3 | **Readiness check**: which path Shadw requests and which statuses it accepts. A 503 fails it. A deploy with authentication configured passed it; a signed-out request then gets 307 to `/sign-in` on `/` and 200 on `/api/health`. If a deploy fails readiness with a status other than 503 and Shadw offers a health-check path, `/api/health` is the route meant for it. | Readiness does not sign in, so it passes without a database. A deploy can be live and still unable to load a page. |
-| 4 | **Request body limit** allows at least 5 MB. | Import files can be up to 4 MB. |
-| 5 | **Managed Postgres**: the name under which the connection URL is exposed (the app reads `DATABASE_URL`), whether it must be added to the project by hand, whether TLS is required, and whether the database accepts connections from outside Shadw. | Decides how migrations and the invite command are run. See step 4. |
-| 6 | **Connection limit** of the database plan against the number of app instances. Each instance opens up to `DATABASE_POOL_MAX` connections (default 5). | Serverless instances scale out. |
-| 7 | **Zip upload**: where it is in the dashboard and whether it runs the same install and build. | Listed as supported; procedure not documented. |
-| 8 | **Preview deployments**: either disable them for this project, or confirm they are protected and do not receive production `DATABASE_URL` or Clerk keys. | Pull request previews must not reach investor data. |
-| 9 | **Database backups** and retention. | Approved snapshots live in PostgreSQL. |
-| 10 | **Logs**: who can read runtime logs. | The app logs no investor records, but access should still be limited. |
+| Select and preview one file | 0.2–0.3 s | 0.4–0.5 s |
+| Add three files and reconcile | 1.0 s | 1.2 s |
+| Record a decision (reconciles again) | 0.6 s | 1.1 s |
 
-### Deploy steps
+The slowest step shows a busy state. At the sample deal's size every step is instant. If the row limit is
+raised substantially, move `previewStaged` and `reconcile` into a bundled worker and add `worker-src 'self'`
+to `security-headers.json`.
 
-**1. Clerk (identity provider)**
+## Build output
 
-1. Create a Clerk application and switch it to a **production instance** (keys start with `pk_live_` and `sk_live_`). Clerk production instances require a domain you control.
-2. Under **Restrictions**, set **Sign-up mode** to **Restricted**, so accounts can only be created from an invitation. Close Desk keeps its own invitation list as well, and an account that is not on it is refused.
-3. Sign-in methods: email with password or email code. Keep email verification on. Turn off any social connection you do not want.
-4. Paths (Clerk dashboard → Paths, if you set them there): sign-in `/sign-in`, sign-up `/accept-invitation`. The app also sets these itself.
-5. Invitation emails link to `${APP_BASE_URL}/accept-invitation`. If Clerk restricts redirect URLs for your instance, allow that URL.
+`npm run build` (Next.js 16.4.6, `output: "export"`) prints:
 
-There is no separate OAuth callback route to register: Clerk's components handle the handshake on `/sign-in` and `/accept-invitation`.
+```
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /guide
+├ ○ /icon.svg
+├ ○ /reconcile
+└ ○ /tokenization
 
-For a first smoke test with synthetic data on a Shadw-provided address, a Clerk development instance (`pk_test_` and `sk_test_` keys) works without a domain of your own. Do not use a development instance with real investor data.
-
-**2. Database**
-
-Provision a PostgreSQL database (14 or newer) from the Shadw dashboard, or use an external one. Note its connection URL (dashboard check 5).
-
-**3. Environment variables, then the project**
-
-Set the variables **before the first build**. Shadw checks readiness after building, and the app answers 503 until both Clerk keys are present at runtime, so a deploy without them fails. Shadw's docs say variables can be set when creating a project, or afterwards under **Settings → Environment Variables**.
-
-Production target:
-
-| Name | Value | Available during | Sensitive |
-| --- | --- | --- | --- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_live_REPLACE_ME` | Build and runtime | No |
-| `CLERK_SECRET_KEY` | `sk_live_REPLACE_ME` | Runtime | Yes |
-| `DATABASE_URL` | `postgres://USER:PASSWORD@HOST:5432/DATABASE` | Runtime | Yes |
-| `DATABASE_SSL` | `require` (only if the provider needs it and the URL does not carry `sslmode`) | Runtime | No |
-| `APP_BASE_URL` | `https://YOUR_DOMAIN` (no trailing slash) | Runtime | No |
-
-Do not set `CLOSE_DESK_DEV_AUTH` or `CLOSE_DESK_DEV_AUTH_SECRET`. If variables are set through the API, pass `"scope": "all"` for the publishable key.
-
-The two Clerk keys decide whether the deploy passes readiness. `DATABASE_URL` is needed as soon as someone signs in: without it, or before step 4 has run, every signed-in page shows "Close Desk cannot use its database" with the setting to fix. `APP_BASE_URL` is needed for invitation emails.
-
-Then create the project from Git:
-
-- Dashboard: **New Project** → paste the repository URL → add the variables above → deploy.
-- Or API:
-
-  ```bash
-  curl -X POST https://api.shadw.cloud/v1/git/deploy \
-    -H 'content-type: application/json' \
-    -H 'Authorization: Bearer hive_YOUR_API_KEY' \
-    -d '{ "repo_url": "https://github.com/YOUR_ORG/Autheo-Close-Desk", "project": "close-desk", "production": true }'
-  ```
-
-If the project already exists, add the variables under **Settings → Environment Variables** and redeploy (dashboard, or `POST https://api.shadw.cloud/v1/projects/close-desk/redeploy`).
-
-Or from a ZIP, where the dashboard offers upload (dashboard check 7). Build the archive from a clean commit so that no local files are included:
-
-```bash
-git archive --format=zip --output close-desk.zip HEAD
+○  (Static)  prerendered as static content
 ```
 
-The archive contains `package-lock.json` and no `.env` files, `node_modules` or build output. A clean `npm ci && npm run build` from this archive was verified locally.
+and writes `out/` (1.7 MB, 54 files): `index.html`, `reconcile/index.html`, `guide/index.html`,
+`tokenization/index.html`, `404.html`, `icon.svg`, and `_next/static/` (hashed JavaScript, CSS and the font).
+There is no server bundle and no function. URLs end in a slash (`/reconcile/`).
 
-Build settings were detected automatically. Only if detection ever needs overriding (**Settings → Build**): install `npm ci`, build `npm run build`, root directory the repository root. Leave the output directory empty.
+## Deploy on Shadw.cloud
 
-**4. Migrations**
+This has not been published. Two ways to serve it; the first is preferred.
 
-Migrations are explicit and forward-only. Run them before the first deploy serves traffic and before any deploy that adds a migration file:
+### Option A: static site
 
-```bash
-# from a trusted machine or CI job that has the repository and can reach the database
-npm ci
-DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/DATABASE' npm run db:migrate
-DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/DATABASE' npm run db:status
-```
+Project → Settings → Build:
 
-Shadw's public docs describe no release or pre-deploy hook. If the managed database is not reachable from outside Shadw (dashboard check 5), ask Shadw how to run a one-off command. A possible fallback is to set the build command to `npm run db:migrate && npm run build` with `DATABASE_URL` available during build; this is untested on Shadw and depends on the build environment reaching the database.
-
-**5. Invite the first user**
-
-There is no sign-up, so the first administrator is created from the command line, with the production environment values:
-
-```bash
-export DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/DATABASE'
-export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY='pk_live_REPLACE_ME'
-export CLERK_SECRET_KEY='sk_live_REPLACE_ME'
-export APP_BASE_URL='https://YOUR_DOMAIN'
-npm run user:invite -- --email ops.lead@your-company.example --name "Ops Lead" --admin
-```
-
-Expected output: `Created ops.lead@your-company.example as workspace administrator.` and `Invitation email sent.` The person opens the emailed link, creates their login on `/accept-invitation`, and lands on **Offerings**. Everyone else is invited from **Team** in the app, then given a role on an offering under **Access**.
-
-If the command reports that Clerk did not send the email, the user record still exists: send the invitation to the same address from the Clerk dashboard (Users → Invitations).
-
-**6. Optional: synthetic demo offering**
-
-Only if you want the fictional demo in this environment. Both people must already be invited and must be different.
-
-```bash
-npm run seed:demo -- --reviewer reviewer@your-company.example --approver approver@your-company.example --confirm
-```
-
-Never load real investor data into a demo or preview environment.
-
-### If the deploy fails its readiness check
-
-```text
-Error: api readiness request returned HTTP 503 (body: Autheo Close Desk is unavailable: authentication is not configured. ...)
-```
-
-The build succeeded and the app started, then refused to serve because authentication is not configured. This is the intended fail-closed behaviour, and Shadw does not promote the deployment. The end of the message, and an `[auth]` line in the runtime log, say what to fix:
-
-| Message ends with | Fix |
+| Setting | Value |
 | --- | --- |
-| `... not set in the runtime environment.` | Add the named variable for the Production target and make sure it is available at runtime, not only during the build. |
-| `... must start with pk_test_ or pk_live_.` / `... sk_test_ or sk_live_.` | The value is a placeholder, has stray characters, or the two keys are swapped. |
-| `CLOSE_DESK_DEV_AUTH is set in production.` | Remove `CLOSE_DESK_DEV_AUTH`. It is for local development only. |
+| Framework | Next.js if it is detected, otherwise "Other" / static |
+| Install command | `npm ci` |
+| Build command | `npm run build` |
+| Output directory | `out` |
+| Root directory | repository root |
+| Node version | 22 |
 
-Then redeploy. There is no setting that makes the app serve without authentication.
+No environment variables are needed. `vercel.json` carries the response headers for hosts that read it.
 
-### If signed-in pages cannot use the database
+### Option B: Node web service
 
-The deploy is live and sign-in works, but every page shows **Close Desk cannot use its database**. The readiness check does not sign in, so it cannot catch this. The page, the API (503, code `database_unavailable`) and a `[db]` line in the runtime log all give the same reason:
+Use this if the static deployment does not serve `out/` correctly or does not apply the headers.
 
-```text
-[db] Database unavailable (schema_missing, 42P01): The database is reachable, but the Close Desk tables are missing or out of date. Run npm run db:migrate against this database. The app never migrates on its own.
-```
-
-| The page says | Fix |
+| Setting | Value |
 | --- | --- |
-| `DATABASE_URL is not set in the runtime environment.` | Add `DATABASE_URL` for the Production target, available at runtime, and redeploy (deploy step 3). |
-| `DATABASE_URL is not a valid PostgreSQL connection URL.` | Use `postgres://USER:PASSWORD@HOST:5432/DATABASE`. Percent-encode special characters in the password. |
-| `The database server did not accept a connection.` | Check the host and port, that the database is running, and that it accepts connections from the deployment (dashboard check 5). |
-| `The TLS handshake with the database failed.` | Set `DATABASE_SSL` to `require`, `no-verify` or `disable` to match the provider. A URL with `sslmode=require` verifies the certificate; a provider whose certificate cannot be verified needs `DATABASE_SSL=no-verify`. |
-| `The database refused the login in DATABASE_URL.` | Check the user, password and database name. If the provider only accepts TLS, set `DATABASE_SSL=require`. |
-| `The database is reachable, but the Close Desk tables are missing or out of date.` | Run `npm run db:migrate` against that database (deploy step 4). |
+| Install command | `npm ci` |
+| Build command | `npm run build` |
+| Start command | `npm start` |
 
-The text names variables and commands only. The log line adds the driver's error code (here `42P01`), never its message, because driver messages carry the host, the user and the database name. Select **Try again** after the fix; no redeploy is needed for a migration.
+`npm start` runs `scripts/serve.mjs`, a dependency-free static file server for `out/`. It listens on `$PORT`
+(default 3000) and `$HOST` (default `0.0.0.0`), answers only GET and HEAD, sends the security headers, and
+caches `/_next/static/` as immutable. It does not read request bodies and has no routes other than files.
 
-Once the database answers, a person who has not been invited sees **You do not have access**. That is the expected answer until deploy step 5 has been run for their email address.
+### After the first deployment
 
-A build from before this section was added shows **This page could not be loaded** for all of these cases, with `Minified React error #441` in the browser console. The reason is then only in the server's log, on the line that starts with `⨯ Error:`.
+1. Open `/`, `/reconcile/`, `/guide/`, `/tokenization/` and an unknown path (expect the 404 page).
+2. `curl -sI https://<host>/reconcile/` and check for `content-security-policy`, `x-frame-options: DENY`,
+   `referrer-policy: no-referrer` and `x-content-type-options: nosniff`.
+3. In the browser's network panel, load `/reconcile/`, clear the log, run the sample walkthrough to both
+   downloads, and confirm the log stays empty and that every earlier request went to the app's own host.
+   The automated privacy tests run against the local production build, not the deployed URL.
 
-## Post-deploy smoke test
+### Not verified from this repository
 
-Use the synthetic example files from **File guide**. About ten minutes.
+These depend on the Shadw dashboard and could not be checked here:
 
-1. **Closed by default.** In a private window open `https://YOUR_DOMAIN/offerings`. Expect a redirect to `/sign-in`. Run `curl -i https://YOUR_DOMAIN/api/offerings`. Expect `401`.
-2. **Health.** `curl -i https://YOUR_DOMAIN/api/health`. Expect `200` and `{"status":"ok"}`. A `503` means the Clerk keys are missing or malformed. The endpoint does not test the database; step 3 does.
-3. **Sign-in.** Accept the administrator invitation from the email. Expect to land on **Offerings**. "Close Desk cannot use its database" means the database is not ready; the page says which setting to fix (see [If signed-in pages cannot use the database](#if-signed-in-pages-cannot-use-the-database)). "You do not have access" means this email address has not been invited. Open `https://YOUR_DOMAIN/accept-invitation` without an invitation link in a private window. Expect "Invitation required" and no sign-up form.
-4. **Team.** Invite a reviewer and an approver from **Team**. Create a test offering. Add both under **Access**.
-5. **Imports.** As the reviewer, download the three example files from **File guide** and import each one. On the funding file, tick the box to leave out the one invalid row. Expect 50, 61 and 48 new records. **Overview** shows 39 ready, 6 needs review, 7 blocked, and totals of $5,090,000.00, $4,750,000.00 and $5,000,000.00.
-6. **Idempotency.** Import the funding file again. Expect 0 new records and unchanged totals.
-7. **Approval is blocked.** As the approver, open **Approval and export**. Expect "This close cannot be approved yet", the list of open items, and no approve control.
-8. **Review.** As the reviewer, clear the exceptions as in [Demo walkthrough](#demo-walkthrough), including both correction files.
-9. **Approve.** As the approver, approve version 1. Expect 47 register lines and $5,000,000.00.
-10. **Download.** Download the ownership register and the exception report. The register has 47 data lines; the line for SUB-1012 reads `INV-0412,Class A,SUB-1012,90000.00,90,USD`. Its SHA-256 matches the one shown on the page.
-11. **Isolation.** Sign in as a person who is not a member of the offering. Expect the offering to be absent from **Offerings** and its URL to return "not found".
-12. Disable the test users you no longer need under **Team**.
-
-## Security notes
-
-- **Authentication** is Clerk. Missing or malformed keys in production close the app (503). There is no anonymous mode, default user or production bypass. The local development identity requires `NODE_ENV` other than `production` and `CLOSE_DESK_DEV_AUTH=1`.
-- **Authorization** is checked on the server in every route handler and page, per offering and per role. State-changing requests from another origin are rejected.
-- **Imports** are validated for size, extension, encoding and structure, parsed in memory, and stored as database rows. Files are not kept on disk.
-- **Exports** are served only to members of the offering, with `Cache-Control: no-store, private`. Approved versions are served from the frozen bytes.
-- **Logging** contains event names, identifiers and counts. Request bodies, file contents and database error parameters are not logged. A database that cannot be used is logged with the driver's error code only.
-- **Secrets** are read from environment variables only. `.env*` files are ignored by git except `.env.example`.
-- **Database**: triggers forbid changing the content of a source record or deleting one, and make import batches, decisions, snapshots and audit events append-only.
-- Response headers set a frame ban, `nosniff`, a referrer policy, a permissions policy and `noindex` (`next.config.ts`).
-
-## Project layout
-
-```text
-db/migrations/        SQL migrations (applied only by npm run db:migrate)
-fixtures/demo/        Synthetic example files, correction files, known-good register
-scripts/              migrate, invite-user, seed-demo, generate-fixtures
-src/domain/           Pure logic: decimals, CSV, import validation, reconciliation, exports
-src/server/           Auth, authorization, services, database access
-src/app/api/          JSON and download routes
-src/app/(app)/        Signed-in pages
-src/app/(auth)/       Sign-in, invitation acceptance, no-access
-src/components/       Interface components
-src/proxy.ts          Request proxy: fail-closed check and signed-out redirect
-tests/                Unit and integration tests
-```
+- Whether Shadw's Next.js detection handles `output: "export"` on its own, or needs the output directory set
+  to `out` by hand.
+- Whether `vercel.json` `headers` are applied to a static deployment. If they are not, the in-page policy
+  still applies (it cannot express `frame-ancestors`; `X-Frame-Options` would then also be missing), or use
+  Option B.
+- That **Speed Insights**, analytics, and any other feature that injects a script into pages are off for
+  this project. They would add a third-party script to the reconciliation screen. The in-page policy only
+  allows scripts from the app's own origin, but turn them off rather than rely on that.
+- Whether preview protection or another access control should be placed in front of the pilot URL. The app
+  has no sign-in of its own.
+- Environment variables left from the earlier build (`DATABASE_URL`, the Clerk keys, and any other auth or
+  storage settings) are unused and can be removed. Any database attached to the project is no longer read
+  or written.
+- Unknown paths should return `out/404.html` with status 404, and `/reconcile` should redirect to
+  `/reconcile/`. Option B does both.

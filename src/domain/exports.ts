@@ -44,7 +44,6 @@ const EXCEPTION_COLUMNS: CsvColumn<ExceptionLine>[] = [
   { header: "currency", type: "text", value: ({ row, exception }) => exception.currency ?? row.currency },
   { header: "decision", type: "text", value: ({ exception }) => exception.decision?.action ?? "" },
   { header: "decision_note", type: "text", value: ({ exception }) => exception.decision?.note ?? "" },
-  { header: "decided_by", type: "text", value: ({ exception }) => exception.decision?.decidedBy.email ?? "" },
   { header: "decided_at", type: "text", value: ({ exception }) => exception.decision?.decidedAt ?? "" },
 ];
 

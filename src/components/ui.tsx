@@ -7,9 +7,15 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
 }
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
 
-const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+const BUTTON_BASE = "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+const BUTTON_SIZE: Record<ButtonSize, string> = {
+  sm: "px-2.5 py-1.5 text-[13px]",
+  md: "px-3.5 py-2 text-sm",
+  lg: "px-5 py-2.5 text-[15px]",
+};
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-accent text-white hover:bg-accent-strong",
@@ -18,20 +24,21 @@ const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   danger: "border border-danger-line bg-surface text-danger hover:bg-danger-soft",
 };
 
-export function buttonClass(variant: ButtonVariant = "secondary", className?: string): string {
-  return cx(BUTTON_BASE, BUTTON_VARIANT[variant], className);
+export function buttonClass(variant: ButtonVariant = "secondary", className?: string, size: ButtonSize = "md"): string {
+  return cx(BUTTON_BASE, BUTTON_SIZE[size], BUTTON_VARIANT[variant], className);
 }
 
-export function Button({ variant = "secondary", className, ...props }: ComponentProps<"button"> & { variant?: ButtonVariant }) {
-  return <button type="button" {...props} className={buttonClass(variant, className)} />;
+export function Button({ variant = "secondary", size = "md", className, ...props }: ComponentProps<"button"> & { variant?: ButtonVariant; size?: ButtonSize }) {
+  return <button type="button" {...props} className={buttonClass(variant, className, size)} />;
 }
 
 export function ButtonLink({
   variant = "secondary",
+  size = "md",
   className,
   ...props
-}: ComponentProps<typeof Link> & { variant?: ButtonVariant }) {
-  return <Link {...props} className={buttonClass(variant, className)} />;
+}: ComponentProps<typeof Link> & { variant?: ButtonVariant; size?: ButtonSize }) {
+  return <Link prefetch={false} {...props} className={buttonClass(variant, className, size)} />;
 }
 
 export function Card({ className, children, ...props }: ComponentProps<"section">) {

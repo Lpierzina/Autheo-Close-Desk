@@ -11,7 +11,7 @@ export interface ParsedCsv {
 }
 
 export interface ParsedRow {
-  /** Line number in the uploaded file (the header is line 1). */
+  /** Line number in the selected file (the header is line 1). */
   rowNumber: number;
   cells: Record<string, string>;
   /** Number of cells on the line. A mismatch with the header usually means an unquoted comma. */
@@ -29,7 +29,7 @@ export function decodeCsvBytes(bytes: Uint8Array): string {
   if (bytes.byteLength === 0) throw new CsvFormatError("The file is empty.");
   if (bytes.byteLength > MAX_IMPORT_BYTES) {
     throw new CsvFormatError(
-      `The file is larger than the ${Math.floor(MAX_IMPORT_BYTES / (1024 * 1024))} MB import limit.`,
+      `The file is larger than the ${Math.floor(MAX_IMPORT_BYTES / (1024 * 1024))} MB limit.`,
     );
   }
   if (bytes.includes(0)) {
