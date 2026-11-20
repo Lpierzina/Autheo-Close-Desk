@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { THEME_INIT_SCRIPT, THEME_STORAGE_KEY } from "../../src/theme/preference";
 
 const root = path.resolve(__dirname, "../..");
 
@@ -14,6 +15,12 @@ function files(dir: string): string[] {
 const sources = files(path.join(root, "src")).filter((file) => /\.(ts|tsx|css)$/.test(file) && !file.endsWith(".generated.ts"));
 const read = (file: string) => readFileSync(file, "utf8");
 const relative = (file: string) => path.relative(root, file);
+
+/**
+ * The one file allowed to use browser storage. It keeps the Light or Dark theme choice
+ * and nothing else; the tests at the end of this file hold it to that.
+ */
+const THEME_PREFERENCE = "src/theme/preference.ts";
 
 /**
  * Anything that could carry deal data out of the tab, or keep it after the tab closes.
@@ -45,6 +52,7 @@ describe("the app has no way to send or keep deal data", () => {
       lines.forEach((line, index) => {
         if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
         for (const { name, pattern } of FORBIDDEN) {
+          if (name === "localStorage" && relative(file) === THEME_PREFERENCE) continue;
           if (pattern.test(line)) found.push(`${relative(file)}:${index + 1} uses ${name}`);
         }
       });
@@ -81,5 +89,35 @@ describe("the app has no way to send or keep deal data", () => {
     });
     expect(policy.contentSecurityPolicy).toContain("connect-src 'self'");
     expect(policy.contentSecurityPolicy.join(" ")).not.toMatch(/https?:|\*/);
+  });
+});
+
+describe("the theme preference is the only thing kept in the browser", () => {
+  const source = read(path.join(root, THEME_PREFERENCE));
+
+  it("cannot reach deal data: it imports nothing, and the session and domain code do not import it", () => {
+    expect(source).not.toMatch(/^\s*import\b/m);
+    expect(source).not.toMatch(/\brequire\s*\(/);
+    const importers = sources.filter((file) => /theme\/preference/.test(read(file))).map(relative);
+    expect(importers.sort()).toEqual(["src/app/layout.tsx", "src/components/theme-toggle.tsx"]);
+  });
+
+  it("writes one entry, under one key, holding only the word light or dark", () => {
+    expect(source.match(/\.setItem\(/g)).toHaveLength(1);
+    expect(source).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, choice)");
+    expect(source).toContain('export type ThemeChoice = "light" | "dark" | "system";');
+    expect(source).toContain('if (choice === "system") window.localStorage.removeItem(THEME_STORAGE_KEY);');
+    // Every storage call names the theme key; none takes a computed key or enumerates the store.
+    const calls = source.match(/localStorage\.\w+\([^)]*\)/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) expect(call).toMatch(/^localStorage\.(getItem|setItem|removeItem)\((THEME_STORAGE_KEY|"\$\{THEME_STORAGE_KEY\}")/);
+    expect(source).not.toMatch(/localStorage\.(clear|key|length)\b|localStorage\[/);
+  });
+
+  it("starts from the system setting and never writes while the page loads", () => {
+    expect(THEME_INIT_SCRIPT).toContain(`window.localStorage.getItem("${THEME_STORAGE_KEY}")`);
+    expect(THEME_INIT_SCRIPT).toContain("prefers-color-scheme: dark");
+    expect(THEME_INIT_SCRIPT).not.toMatch(/setItem|removeItem|cookie|fetch|XMLHttpRequest|sendBeacon|src=|import\(|https?:/);
+    expect(THEME_STORAGE_KEY).toBe("close-desk-theme");
   });
 });

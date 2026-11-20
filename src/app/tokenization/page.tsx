@@ -19,7 +19,7 @@ export default function TokenizationPage() {
   return (
     <main className="mx-auto max-w-[860px] px-4 py-12 sm:px-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-[26px] font-semibold tracking-tight text-navy-900">Custom tokenization</h1>
+        <h1 className="text-[26px] font-semibold tracking-tight text-heading">Custom tokenization</h1>
         <Pill>Coming soon</Pill>
       </div>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink-2">

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Banknote, FileSignature, PieChart } from "lucide-react";
 import { PrivacyNote } from "@/components/notes";
 import { StartActions } from "@/components/start-actions";
-import { Pill } from "@/components/ui";
+import { Pill, cx } from "@/components/ui";
 import { explainRow } from "@/domain/explain";
 import { formatMoney, formatSignedMoney, formatUnits } from "@/domain/money";
 import { commitStaged, setSkipInvalidRows, viewOf } from "@/session/engine";
@@ -36,6 +36,9 @@ const RULES = [
   },
 ] as const;
 
+const EXAMPLE_CELL = "flex items-baseline justify-between gap-4 px-5 py-3 lg:flex-col lg:items-start lg:justify-between lg:gap-2 lg:py-4";
+const EXAMPLE_VALUE = "num font-semibold text-ink lg:text-xl lg:tracking-tight";
+
 /** The worked example on this page is computed from the bundled sample files when the site is built. */
 function guidedExample() {
   const sample = commitStaged(setSkipInvalidRows(startSampleSession(), "funding", true)).state;
@@ -63,67 +66,70 @@ export default function HomePage() {
 
   return (
     <main>
-      <section className="border-b border-line bg-surface">
-        <div className="mx-auto grid max-w-[1200px] items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:py-14">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Autheo Close Desk</p>
-            <h1 className="mt-3 max-w-xl text-[34px] font-semibold leading-[1.12] tracking-tight text-navy-900 sm:text-[44px]">
+      <section className="hero relative isolate overflow-hidden border-b border-line">
+        <div className="relative z-10 mx-auto max-w-[1200px] px-4 pt-12 sm:px-6 xl:py-16">
+          <div className="max-w-xl">
+            <p className="hero-eyebrow text-xs font-semibold uppercase tracking-[0.14em]">Autheo Close Desk</p>
+            <h1 className="mt-3 text-[34px] font-semibold leading-[1.12] tracking-tight text-heading sm:text-[44px]">
               Reconcile your apartment equity raise before closing.
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-ink-2">
+            <p className="mt-5 text-base leading-relaxed text-ink-2">
               For multifamily sponsors and investor operations teams. Compare your subscription, funding, and allocation files, review what doesn&apos;t
               match, and download an ownership register for your administrator.
             </p>
             <div className="mt-8">
               <StartActions />
             </div>
-            <PrivacyNote className="mt-5 max-w-xl" />
+            <PrivacyNote className="mt-5" />
           </div>
-
-          <figure aria-labelledby="example-caption" className="rounded-xl border border-line bg-paper shadow-[0_20px_50px_-30px_rgba(13,27,51,0.35)]">
-            <figcaption id="example-caption" className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-              <span className="text-[13px] font-medium text-ink">
-                <span className="num">{example.subscription}</span> · {example.shareClass}
-                <span className="ml-2 font-normal text-ink-3">Synthetic example</span>
-              </span>
-              <Pill tone="warn">Needs review</Pill>
-            </figcaption>
-            <dl className="divide-y divide-line text-sm">
-              <div className="flex items-baseline justify-between gap-4 px-5 py-3">
-                <dt className="text-ink-2">Signed</dt>
-                <dd className="num font-semibold text-ink">{example.signed}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4 px-5 py-3">
-                <dt className="text-ink-2">
-                  Cleared
-                  <span className="num block text-xs text-ink-3">
-                    {example.wires.length} wires: {example.wires.join(" + ")}
-                  </span>
-                </dt>
-                <dd className="num font-semibold text-ink">{example.cleared}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4 px-5 py-3">
-                <dt className="text-ink-2">
-                  Approved by the sponsor
-                  <span className="num block text-xs text-ink-3">{example.units} units</span>
-                </dt>
-                <dd className="num font-semibold text-ink">{example.approved}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4 bg-warn-soft px-5 py-3">
-                <dt className="font-medium text-warn">Variance to review</dt>
-                <dd className="num font-semibold text-warn">{example.variance}</dd>
-              </div>
-            </dl>
-            <p className="border-t border-line px-5 py-4 text-[13px] leading-relaxed text-ink-2">
-              {example.difference} Close Desk explains the difference, requires a review, and exports only the approved{" "}
-              <span className="num font-medium text-ink">
-                {example.approved} · {example.units} units
-              </span>
-              . It never moves money, issues units, or initiates a refund.
-            </p>
-          </figure>
         </div>
+        <div aria-hidden data-testid="hero-art" className="hero-art" />
       </section>
+
+      <div className="mx-auto max-w-[1200px] px-4 pt-8 sm:px-6">
+        <figure aria-labelledby="example-caption" className="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_20px_50px_-34px_var(--shadow-color)]">
+          <figcaption id="example-caption" className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
+            <span className="text-[13px] font-medium text-ink">
+              <span className="num">{example.subscription}</span> · {example.shareClass}
+              <span className="ml-2 font-normal text-ink-3">Synthetic example</span>
+            </span>
+            <Pill tone="warn">Needs review</Pill>
+          </figcaption>
+          <dl className="grid divide-y divide-line text-sm lg:grid-cols-4 lg:divide-x lg:divide-y-0">
+            <div className={EXAMPLE_CELL}>
+              <dt className="text-ink-2">Signed</dt>
+              <dd className={EXAMPLE_VALUE}>{example.signed}</dd>
+            </div>
+            <div className={EXAMPLE_CELL}>
+              <dt className="text-ink-2">
+                Cleared
+                <span className="num block text-xs text-ink-3">
+                  {example.wires.length} wires: {example.wires.join(" + ")}
+                </span>
+              </dt>
+              <dd className={EXAMPLE_VALUE}>{example.cleared}</dd>
+            </div>
+            <div className={EXAMPLE_CELL}>
+              <dt className="text-ink-2">
+                Approved by the sponsor
+                <span className="num block text-xs text-ink-3">{example.units} units</span>
+              </dt>
+              <dd className={EXAMPLE_VALUE}>{example.approved}</dd>
+            </div>
+            <div className={cx(EXAMPLE_CELL, "bg-warn-soft")}>
+              <dt className="font-medium text-warn">Variance to review</dt>
+              <dd className="num font-semibold text-warn lg:text-xl lg:tracking-tight">{example.variance}</dd>
+            </div>
+          </dl>
+          <p className="border-t border-line px-5 py-3.5 text-[13px] leading-relaxed text-ink-2">
+            {example.difference} Close Desk explains the difference, requires a review, and exports only the approved{" "}
+            <span className="num font-medium text-ink">
+              {example.approved} · {example.units} units
+            </span>
+            . It never moves money, issues units, or initiates a refund.
+          </p>
+        </figure>
+      </div>
 
       <section aria-labelledby="questions-heading" className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6">
         <h2 id="questions-heading" className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-3">
@@ -133,10 +139,10 @@ export default function HomePage() {
           {QUESTIONS.map(({ question, source, icon: Icon }, index) => (
             <li key={question} className="flex flex-col rounded-lg border border-line bg-surface p-6">
               <div className="flex items-center justify-between">
-                <span className="num flex h-7 w-7 items-center justify-center rounded-full bg-navy-900 text-[13px] font-semibold text-white">{index + 1}</span>
+                <span className="num flex h-7 w-7 items-center justify-center rounded-full bg-strong text-[13px] font-semibold text-on-strong">{index + 1}</span>
                 <Icon aria-hidden className="h-5 w-5 text-accent" />
               </div>
-              <p className="mt-5 text-xl font-semibold leading-snug tracking-tight text-navy-900">{question}</p>
+              <p className="mt-5 text-xl font-semibold leading-snug tracking-tight text-heading">{question}</p>
               <p className="mt-auto pt-4 text-sm text-ink-2">{source}</p>
             </li>
           ))}
@@ -150,7 +156,7 @@ export default function HomePage() {
           </h2>
           <ol className="mt-5 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step, index) => (
-              <li key={step.title} className="border-t-2 border-navy-900 pt-4">
+              <li key={step.title} className="border-t-2 border-strong pt-4">
                 <p className="num text-xs font-medium text-ink-3">Step {index + 1}</p>
                 <p className="mt-1 text-[15px] font-semibold text-ink">{step.title}</p>
                 <p className="mt-2 text-[13px] leading-relaxed text-ink-2">{step.body}</p>

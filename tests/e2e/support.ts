@@ -95,7 +95,11 @@ export async function download(page: Page, testId: "download-register" | "downlo
 export async function closeSampleDeal(page: Page, corrections: (page: Page) => Promise<void>): Promise<void> {
   await page.getByTestId("preview-funding").getByRole("checkbox").check();
   await addSelected(page);
+  await finishSampleDeal(page, corrections);
+}
 
+/** The same, from the point where the three sample files are already in the workspace. */
+export async function finishSampleDeal(page: Page, corrections: (page: Page) => Promise<void>): Promise<void> {
   await openRow(page, "SUB-1012::CLASS A");
   await documentException(page, "EXCESS_FUNDING");
   await openRow(page, "SUB-1044::CLASS A");

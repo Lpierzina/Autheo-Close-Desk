@@ -49,7 +49,7 @@ export function ConfirmDialog({
       onClick={(event) => {
         if (event.target === ref.current) onCancel();
       }}
-      className="m-auto w-[min(92vw,460px)] rounded-lg border border-line-strong bg-surface p-0 text-ink shadow-[0_24px_60px_-20px_rgba(13,27,51,0.45)] backdrop:bg-navy-950/45"
+      className="m-auto w-[min(92vw,460px)] rounded-lg border border-line-strong bg-surface p-0 text-ink shadow-[0_24px_60px_-20px_var(--shadow-color)] backdrop:bg-[var(--overlay-color)]"
     >
       <div className="px-6 pb-5 pt-6">
         <h2 id={titleId} className="text-base font-semibold text-ink">
