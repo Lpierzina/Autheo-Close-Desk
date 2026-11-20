@@ -1,39 +1,98 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Day: ivory paper and sage lines, with Autheo's Ultramarine for actions.
+ * Every colour in the app comes from these tokens, so the night theme below only has to
+ * give each one a second value.
+ */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
-  --color-navy-950: #081223;
-  --color-navy-900: #0d1b33;
-  --color-navy-800: #142747;
-  --color-navy-700: #1d355d;
-  --color-navy-600: #2a4674;
-  --color-navy-300: #9db0cf;
-  --color-navy-200: #c3d0e6;
+  --color-paper: #f7f9f4;
+  --color-paper-2: #edf1e8;
+  --color-surface: #fdfefb;
+  --color-header: #fbfcf8;
+  --color-line: #dfe6d9;
+  --color-line-strong: #c3cfbf;
 
-  --color-paper: #faf8f4;
-  --color-paper-2: #f4f1ea;
-  --color-surface: #fffefb;
-  --color-line: #e7e2d8;
-  --color-line-strong: #d5cfc2;
+  --color-ink: #16241d;
+  --color-ink-2: #3d4b43;
+  --color-ink-3: #5d6b62;
+  --color-heading: #0f2f25;
 
-  --color-ink: #1b2533;
-  --color-ink-2: #414c5c;
-  --color-ink-3: #6a7483;
+  /* A solid chip: the current step, a pressed filter, a numbered marker. */
+  --color-strong: #17382d;
+  --color-on-strong: #ffffff;
+  --color-strong-soft: #d5e3d6;
 
-  --color-accent: #0f766e;
-  --color-accent-strong: #0b5e58;
-  --color-accent-soft: #e8f4f2;
-  --color-accent-line: #b7dcd7;
+  --color-accent: #007262;
+  --color-accent-strong: #005a4e;
+  --color-accent-soft: #e4f1ea;
+  --color-accent-line: #b4d6c6;
+  --color-on-accent: #ffffff;
 
-  --color-warn: #92500a;
-  --color-warn-soft: #fdf3dc;
-  --color-warn-line: #edd49b;
+  --color-warn: #8a4b08;
+  --color-warn-soft: #fbf1d9;
+  --color-warn-line: #e9d096;
 
-  --color-danger: #a4262c;
-  --color-danger-soft: #fbeaea;
-  --color-danger-line: #ecc2c2;
+  --color-danger: #a12a2f;
+  --color-danger-soft: #fbeae8;
+  --color-danger-line: #ecc3c0;
+}
+
+:root {
+  color-scheme: light;
+  --shadow-color: rgb(15 47 37 / 0.28);
+  --overlay-color: rgb(9 22 16 / 0.45);
+  /* The flat colour of each illustration's empty left side, so the artwork has no visible edge. */
+  --hero-bg: #f7f9f4;
+  --hero-eyebrow: #005a4e;
+}
+
+/*
+ * Night: near-black with a restrained green. The electric green of the illustration is
+ * kept for the homepage hero; tables, forms and badges use the quieter accent.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-paper: #060b08;
+  --color-paper-2: #131d17;
+  --color-surface: #0b120e;
+  --color-header: #030805;
+  --color-line: #1c2921;
+  --color-line-strong: #384c40;
+
+  --color-ink: #e9f0ea;
+  --color-ink-2: #b5c2b9;
+  --color-ink-3: #8c9b91;
+  --color-heading: #f4f9f4;
+
+  --color-strong: #dfeae0;
+  --color-on-strong: #07110b;
+  --color-strong-soft: #22332a;
+
+  --color-accent: #5fcf80;
+  --color-accent-strong: #86e3a0;
+  --color-accent-soft: #0f2417;
+  --color-accent-line: #1f4a2e;
+  --color-on-accent: #04140a;
+
+  --color-warn: #ecc06a;
+  --color-warn-soft: #2a2009;
+  --color-warn-line: #5c4716;
+
+  --color-danger: #f29a96;
+  --color-danger-soft: #2e1413;
+  --color-danger-line: #66302d;
+
+  --shadow-color: rgb(0 0 0 / 0.6);
+  --overlay-color: rgb(0 0 0 / 0.62);
+  --hero-bg: #000803;
+  --hero-eyebrow: #49f146;
 }
 
 @layer base {
@@ -63,6 +122,94 @@
 
 @utility num {
   font-variant-numeric: tabular-nums lining-nums;
+}
+
+/*
+ * Homepage hero. The illustration is decoration: the headline, the buttons and the
+ * privacy note are ordinary text placed beside it, never on top of the line work.
+ *
+ * Both files are 3:1 and keep their left 41% empty. Below 80rem the scene is a band under
+ * the copy, cropped to the part that has a drawing in it. From 80rem it sits on the
+ * right, sized so the drawing begins where the copy column ends.
+ */
+.hero {
+  background-color: var(--hero-bg);
+}
+
+.hero-eyebrow {
+  color: var(--hero-eyebrow);
+}
+
+.hero-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 177 / 100;
+  max-height: 340px;
+  margin-top: 2.25rem;
+  mask-image: linear-gradient(to bottom, transparent, #000 14%);
+}
+
+/*
+ * One layer per theme. Both files load with the page, so the hero changes in the same
+ * frame as everything else and switching the theme never needs the network.
+ */
+.hero-art::before,
+.hero-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  background-size: auto 100%;
+}
+
+.hero-art::before {
+  background-image: url("../assets/hero/close-desk-hero-day.webp");
+}
+
+.hero-art::after {
+  background-image: url("../assets/hero/close-desk-hero-night.webp");
+  visibility: hidden;
+}
+
+:root[data-theme="dark"] .hero-art::before {
+  visibility: hidden;
+}
+
+:root[data-theme="dark"] .hero-art::after {
+  visibility: visible;
+}
+
+/* The primary call to action in the hero may use the illustration's green at night. */
+:root[data-theme="dark"] .hero {
+  --color-accent: #49f146;
+  --color-accent-strong: #7bf578;
+}
+
+@media (min-width: 80rem) {
+  .hero {
+    /* Right edge of the copy column: page gutter, the 36rem column, and a little air. */
+    --hero-copy-edge: calc(max(1.5rem, (100% - 1200px) / 2 + 1.5rem) + 37rem);
+  }
+
+  .hero-art {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    /* The drawing is the right 59% of the file, so this puts its first line at the copy edge. */
+    width: calc((100% - var(--hero-copy-edge)) / 0.59);
+    max-height: 100%;
+    aspect-ratio: 3 / 1;
+    mask-image: linear-gradient(to right, transparent 26%, #000 40%), linear-gradient(to bottom, transparent, #000 16%);
+    mask-composite: intersect;
+  }
+}
+
+/* Set for one frame while the theme changes, so the whole page switches together. */
+:root[data-theme-switching],
+:root[data-theme-switching] * {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

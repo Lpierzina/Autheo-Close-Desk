@@ -367,7 +367,7 @@ function FileSlot({ kind, index }: { kind: FileKind; index: number }) {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
         <div className="min-w-0">
           <div className="flex items-start gap-3">
-            <span className="num mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy-900 text-xs font-semibold text-white">{index + 1}</span>
+            <span className="num mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-strong text-xs font-semibold text-on-strong">{index + 1}</span>
             <div className="min-w-0">
               <h3 id={headingId} className="text-[15px] font-semibold text-ink">
                 {slot.question}

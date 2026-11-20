@@ -22,13 +22,16 @@ test.describe("home page", () => {
     await expect(questions.nth(2)).toContainText("How many LLC units did the sponsor approve?");
     await expect(questions.nth(2)).toContainText("Approved allocations");
 
-    // The headline, both calls to action and the three questions fit on a laptop screen without scrolling.
-    await expect(page.getByRole("link", { name: "Start a reconciliation" }).first()).toBeInViewport();
-    await expect(page.getByRole("button", { name: "Try with sample data" }).first()).toBeInViewport();
-    await expect(questions.nth(2)).toBeInViewport();
-
     // The worked example is computed from the bundled sample files.
     const example = page.getByRole("figure");
+
+    // The headline, both calls to action and the whole worked example fit on a laptop screen
+    // without scrolling. The three questions follow directly below.
+    await expect(page.getByRole("heading", { level: 1 })).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole("link", { name: "Start a reconciliation" }).first()).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole("button", { name: "Try with sample data" }).first()).toBeInViewport({ ratio: 1 });
+    await expect(example).toBeInViewport({ ratio: 1 });
+
     await expect(example).toContainText("$100,000.00");
     await expect(example).toContainText("2 wires: $60,000.00 + $40,000.00");
     await expect(example).toContainText("$90,000.00");

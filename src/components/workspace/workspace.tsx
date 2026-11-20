@@ -57,14 +57,14 @@ function Stepper({ step, onStep, state, view }: { step: Step; onStep: (step: Ste
                 data-testid={`step-${item.id}`}
                 className={cx(
                   "flex h-full w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-paper-2 focus-visible:outline-offset-[-2px]",
-                  current && "bg-paper shadow-[inset_0_-3px_0_var(--color-navy-900)]",
+                  current && "bg-paper shadow-[inset_0_-3px_0_var(--color-strong)]",
                 )}
               >
                 <span
                   aria-hidden
                   className={cx(
                     "num flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                    current ? "bg-navy-900 text-white" : index < currentIndex ? "bg-navy-200 text-navy-900" : "border border-line-strong text-ink-3",
+                    current ? "bg-strong text-on-strong" : index < currentIndex ? "bg-strong-soft text-heading" : "border border-line-strong text-ink-3",
                   )}
                 >
                   {index + 1}
@@ -165,7 +165,7 @@ function ReviewStep({
               <span className="block text-xs text-ink-3">{total.question}</span>
               <span className="block text-[13px] font-semibold text-ink">{total.label}</span>
             </dt>
-            <dd className="num mt-2 text-[26px] font-semibold leading-none tracking-tight text-navy-900">{total.value}</dd>
+            <dd className="num mt-2 text-[26px] font-semibold leading-none tracking-tight text-heading">{total.value}</dd>
             <dd className="num mt-2.5 space-y-0.5 text-xs text-ink-3">
               {total.lines.map((line) => (
                 <span key={line} className="block">
@@ -273,7 +273,7 @@ function SampleGuide({ onOpenGuided, onCorrections, onStep }: { onOpenGuided: ()
         </p>
         <div aria-hidden className="flex items-center gap-1">
           {items.map((item, index) => (
-            <span key={item.title} className={cx("h-1.5 w-6 rounded-full", item.done ? "bg-accent" : index === next ? "bg-navy-900" : "bg-line-strong")} />
+            <span key={item.title} className={cx("h-1.5 w-6 rounded-full", item.done ? "bg-accent" : index === next ? "bg-strong" : "bg-line-strong")} />
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1">
@@ -313,7 +313,7 @@ function SampleGuide({ onOpenGuided, onCorrections, onStep }: { onOpenGuided: ()
               {item.done ? (
                 <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
               ) : (
-                <Circle aria-hidden className={cx("mt-0.5 h-4 w-4 shrink-0", index === next ? "text-navy-900" : "text-ink-3")} />
+                <Circle aria-hidden className={cx("mt-0.5 h-4 w-4 shrink-0", index === next ? "text-heading" : "text-ink-3")} />
               )}
               <p className="text-ink-2">
                 <span className={cx("font-medium", item.done ? "text-ink-2" : "text-ink")}>

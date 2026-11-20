@@ -18,7 +18,7 @@ const BUTTON_SIZE: Record<ButtonSize, string> = {
 };
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-strong",
+  primary: "bg-accent text-on-accent hover:bg-accent-strong",
   secondary: "border border-line-strong bg-surface text-ink hover:bg-paper-2",
   ghost: "text-ink-2 hover:bg-paper-2 hover:text-ink",
   danger: "border border-danger-line bg-surface text-danger hover:bg-danger-soft",
@@ -92,17 +92,18 @@ export function Pill({ tone = "neutral", children, className }: { tone?: Tone; c
   );
 }
 
-const STATUS: Record<string, { label: string; tone: Tone }> = {
-  ready: { label: "Ready", tone: "ok" },
-  needs_review: { label: "Needs review", tone: "warn" },
-  blocked: { label: "Blocked", tone: "danger" },
+const STATUS: Record<string, { label: string; tone: Tone; icon: typeof CheckCircle2 }> = {
+  ready: { label: "Ready", tone: "ok", icon: CheckCircle2 },
+  needs_review: { label: "Needs review", tone: "warn", icon: AlertTriangle },
+  blocked: { label: "Blocked", tone: "danger", icon: OctagonAlert },
 };
 
+/** The status is always written out, and each has its own shape, so it never depends on colour. */
 export function StatusPill({ status }: { status: "ready" | "needs_review" | "blocked" }) {
-  const { label, tone } = STATUS[status] ?? { label: status, tone: "neutral" as Tone };
+  const { label, tone, icon: Icon } = STATUS[status] ?? { label: status, tone: "neutral" as Tone, icon: Info };
   return (
     <Pill tone={tone}>
-      <span aria-hidden className={cx("h-1.5 w-1.5 rounded-full", tone === "ok" ? "bg-accent" : tone === "warn" ? "bg-warn" : "bg-danger")} />
+      <Icon aria-hidden className="h-3 w-3 shrink-0" />
       {label}
     </Pill>
   );

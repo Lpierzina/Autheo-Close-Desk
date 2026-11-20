@@ -154,15 +154,15 @@ export function RowTable({
               className={cx(
                 "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
                 status === chip.id
-                  ? "border-navy-900 bg-navy-900 text-white"
+                  ? "border-strong bg-strong text-on-strong"
                   : chip.emphasis
                     ? "border-warn-line bg-warn-soft text-warn hover:border-warn"
                     : "border-line-strong bg-surface text-ink-2 hover:bg-paper-2",
               )}
             >
-              {chip.dot ? <span aria-hidden className={cx("h-1.5 w-1.5 rounded-full", status === chip.id ? "bg-white" : chip.dot)} /> : null}
+              {chip.dot ? <span aria-hidden className={cx("h-1.5 w-1.5 rounded-full", status === chip.id ? "bg-on-strong" : chip.dot)} /> : null}
               {chip.label}
-              <span className={cx("num text-xs", status === chip.id ? "text-navy-200" : chip.emphasis ? "text-warn" : "text-ink-3")}>{chip.count}</span>
+              <span className={cx("num text-xs", status === chip.id ? "text-on-strong/75" : chip.emphasis ? "text-warn" : "text-ink-3")}>{chip.count}</span>
             </button>
           ))}
         </div>
