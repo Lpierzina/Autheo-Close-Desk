@@ -1,0 +1,43 @@
+{
+  "retrieved": "2026-11-20",
+  "mediaKit": "mediakit.autheo.com",
+  "usageGuide": "Autheo Brand Identity v2.0 (2025), Logo Design section: clear space, main logo, logo placement, appropriate logo use",
+  "files": [
+    {
+      "file": "autheo/Autheo-Logo-2.svg",
+      "what": "Autheo wordmark, Ultramarine #007262. Media kit section: Logo. For light surfaces.",
+      "from": "cloud-1de12d.becdn.net/media/original/ff1e729c49c910394c5609b90c5cc605/Autheo-Logo-2.svg",
+      "sha256": "bbf17e3df5ce9fd46413f6693a2df1de916ea5b63c9b747561ca1ee251322ab0"
+    },
+    {
+      "file": "autheo/Autheo-Logo-White-copy.png",
+      "what": "Autheo wordmark, white, 2000 x 322. Media kit section: Logo. For dark surfaces.",
+      "from": "cloud-1de12d.becdn.net/media/original/677dc56a3d3c0d64f653f835b8811072/Autheo-Logo-White-copy.png",
+      "sha256": "3d20e57a68506273e2d97bc4e71424e3aa87da98092bee7357796511a306d3c0"
+    },
+    {
+      "file": "autheo/Autheo-Logo-Icon-2.png",
+      "what": "Autheo logomark, Ultramarine #007262, 2904 x 2220. Media kit section: Logomark. For light surfaces.",
+      "from": "cloud-1de12d.becdn.net/media/original/bfc9fdc6bd8481111125b71788868f18/Autheo-Logo-Icon-2.png",
+      "sha256": "65d4ddc7ba906404906c9eade04f462f53e1fb63ea4dd85aae727208133f7bf6"
+    },
+    {
+      "file": "autheo/Autheo-Logo-Icon-White.png",
+      "what": "Autheo logomark, white, 2904 x 2220. Media kit section: Logomark. For dark surfaces.",
+      "from": "cloud-1de12d.becdn.net/media/original/a1e5ff99fab59b3a72cfba426da3c5e0/Autheo-Logo-Icon-White.png",
+      "sha256": "aac410b5f0387528a635252188fcff88580503c91af9590685421fcdc702e306"
+    },
+    {
+      "file": "hero/close-desk-hero-day.jpg",
+      "what": "Close Desk homepage illustration, day: ivory background, sage line art, 1024 x 341. Supplied with the branding request.",
+      "from": "supplied",
+      "sha256": "e86bf306663edeaa7163d4ae99a31dfabed88489910c596b00f380cbd3162ed9"
+    },
+    {
+      "file": "hero/close-desk-hero-night.jpg",
+      "what": "Close Desk homepage illustration, night: near-black background, electric-green line art, 1024 x 341. Supplied with the branding request.",
+      "from": "supplied",
+      "sha256": "f6bcc036bb62dee8e7fcdc9e24cc5cf660833b47472cf80ac7e960533b46b179"
+    }
+  ]
+}
