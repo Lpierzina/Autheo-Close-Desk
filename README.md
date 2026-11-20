@@ -17,15 +17,18 @@ and its output is a reviewed register export for your administrator, not the off
 
 ## The pilot runs entirely in the browser
 
-The app is a static site. The host serves HTML, JavaScript, CSS, one font and the sample CSVs. Reading,
-parsing, column mapping, matching, exception review, confirmation and CSV generation all happen in the open
-browser tab, in memory.
+The app is a static site. The host serves HTML, JavaScript, CSS, one font, the logo and hero images, and the
+sample CSVs. Reading, parsing, column mapping, matching, exception review, confirmation and CSV generation
+all happen in the open browser tab, in memory.
 
 - There is no server runtime, API route, server action, database, cloud storage or sign-in.
-- Nothing is written to `localStorage`, `sessionStorage`, IndexedDB, the Cache API or cookies, and there is
-  no service worker.
+- No deal data is written to `localStorage`, `sessionStorage`, IndexedDB, the Cache API or cookies, and
+  there is no service worker. The one thing the browser keeps is the theme: choosing Light or Dark saves the
+  word `light` or `dark` under the `localStorage` key `close-desk-theme`, and choosing System removes it.
+  Until a choice is made, storage is empty.
 - There are no analytics, session replay, remote error reporting or third-party scripts. The font
-  (`@fontsource-variable/inter`), icons and sample files are bundled.
+  (`@fontsource-variable/inter`), icons, Autheo logos, hero images and sample files are bundled. Nothing is
+  loaded from the Autheo media kit at runtime.
 - Downloads are built in the tab as `Blob` URLs. They are revoked by **Clear session** and after 60 seconds.
 - A refresh, or closing the tab, ends the session. Nothing is restored.
 - After the workspace has loaded, the whole workflow makes no network request at all, so it also works
@@ -57,13 +60,17 @@ stored on our servers.") is backed by these tests, which run against the product
 | A refresh starts a new session; storage, cookies, caches, IndexedDB and service workers are empty | `privacy.spec.ts` "a refresh starts a new session…" |
 | Another tab does not see the session | `privacy.spec.ts` "a second tab…" |
 | Clear session resets files, mappings, decisions, the confirmation and download references | `privacy.spec.ts` "Clear session resets…" |
-| Source code uses no storage, network or worker API, and the repo has no API route or server package | `tests/unit/browser-only.test.ts` |
+| Source code uses no network or worker API, and no storage outside `src/theme/preference.ts`; the repo has no API route or server package | `tests/unit/browser-only.test.ts` |
+| The theme module imports nothing, writes one key, and can only store `light` or `dark` | `browser-only.test.ts` "the theme preference is the only thing kept in the browser" |
+| Storage is empty until a theme is chosen; afterwards it holds that one word, and System removes it | `tests/e2e/theme.spec.ts` "follows the system setting…", "remembers an explicit choice…" |
+| Switching themes mid-review keeps the session and makes no request (the browser is offline for the test); after the sample deal is exported, storage holds the theme and nothing from the deal | `theme.spec.ts` "switching themes during a review…" |
+| Logos, favicons and hero images are served from the app's own origin | `privacy.spec.ts` "the app loads nothing from another origin…", `theme.spec.ts` "the product label…" |
 
 ## Screens
 
 | Route | What it is |
 | --- | --- |
-| `/` | What the product is, the three questions, the two calls to action, the $100,000 / $90,000 example, and a small "Custom tokenization · Coming soon" section |
+| `/` | What the product is and the two calls to action over the day or night illustration, the $100,000 / $90,000 example, the three questions, and a small "Custom tokenization · Coming soon" section |
 | `/reconcile` | The workspace: **Select files → Review matches → Resolve exceptions → Export** |
 | `/guide` | Accepted columns for each file, the matching rules, and the sample CSVs |
 | `/tokenization` | Information only. No form, no wallet, no files |
@@ -85,6 +92,40 @@ Workspace steps:
    exceptions report. The register is blocked while any blocker or undecided item remains; a draft exceptions
    report is always available. Any later change to files, mappings, deal settings or decisions cancels the
    confirmation.
+
+### Brand and theme
+
+The header shows the official Autheo wordmark (the logomark below 640px) with "Close Desk" set beside it as
+text. The files come from the [Autheo media kit](https://mediakit.autheo.com/) and are used as published:
+the Ultramarine mark on the light theme and the white mark on the dark theme, following the brand guide
+(Brand Identity v2.0, Logo Design). They are not recoloured, filtered or redrawn, and the THEO token symbol
+is not used.
+
+| Shipped file (`src/assets/`) | Made from (`brand/`) | How |
+| --- | --- | --- |
+| `brand/autheo-wordmark-ultramarine.svg` | `autheo/Autheo-Logo-2.svg` | Copied byte for byte |
+| `brand/autheo-wordmark-white.png` (800 × 129) | `autheo/Autheo-Logo-White-copy.png` (2000 × 322) | Scaled down |
+| `brand/autheo-logomark-ultramarine.png` (251 × 192) | `autheo/Autheo-Logo-Icon-2.png` (2904 × 2220) | Scaled down |
+| `brand/autheo-logomark-white.png` (251 × 192) | `autheo/Autheo-Logo-Icon-White.png` (2904 × 2220) | Scaled down |
+| `brand/favicon-light.png`, `brand/favicon-dark.png` (96 × 96) | The two logomarks | Scaled down and centred on a transparent square |
+| `hero/close-desk-hero-day.webp`, `hero/close-desk-hero-night.webp` (1024 × 341) | `hero/close-desk-hero-day.jpg`, `hero/close-desk-hero-night.jpg` | Re-encoded as WebP at the same size, quality 90 |
+
+`brand/` keeps each source file as received, and `brand/SOURCES.json` records where it came from and its
+SHA-256. `npm run assets:brand` rebuilds `src/assets/` from them and stops if a source no longer matches;
+`tests/unit/brand-assets.test.ts` checks the same hashes. The output is committed, so a normal build does not
+run the script. The media kit has no vector file for the white wordmark or for either logomark, so those
+three are PNG.
+
+The illustrations are decoration on the home page hero only. The headline, description, buttons and privacy
+note are HTML beside the drawing, never on top of it: from 1280px the drawing sits to the right of the copy;
+below that it is a band under the copy. The $100K cleared / $90K approved example is a component under the
+hero. Both illustrations load with the page, so changing theme needs no request.
+
+The theme menu in the header offers **Light**, **Dark** and **System** (the default). The choice applies to
+the hero, header, logo and colours together, and is set before the first paint by a small inline script.
+Colours are CSS variables in `src/app/globals.css`: ivory and sage by day, near-black with a muted green at
+night. The illustration's bright green is used only in the hero. The workspace has no artwork, and Ready,
+Needs review and Blocked are always written out, each with its own icon.
 
 ### Matching rules
 
@@ -152,8 +193,11 @@ Layout:
   Node APIs; shared by the app and the tests.
 - `src/session/` – the in-memory session: staged files, mappings, records, decisions, confirmation.
 - `src/components/workspace/` – the four workspace steps.
-- `tests/unit`, `tests/session` – 98 tests, including the acceptance suite that compares the export with
-  the known-good register. `tests/e2e` – 26 browser tests.
+- `src/theme/preference.ts` – the theme choice, and the only code that touches browser storage.
+- `brand/` – the official Autheo logo files and the two hero illustrations as received; `src/assets/` – the
+  web copies built from them.
+- `tests/unit`, `tests/session` – 105 tests, including the acceptance suite that compares the export with
+  the known-good register. `tests/e2e` – 39 browser tests.
 
 ### Limits and the Web Worker decision
 
@@ -179,15 +223,15 @@ Route (app)
 ┌ ○ /
 ├ ○ /_not-found
 ├ ○ /guide
-├ ○ /icon.svg
 ├ ○ /reconcile
 └ ○ /tokenization
 
 ○  (Static)  prerendered as static content
 ```
 
-and writes `out/` (1.7 MB, 54 files): `index.html`, `reconcile/index.html`, `guide/index.html`,
-`tokenization/index.html`, `404.html`, `icon.svg`, and `_next/static/` (hashed JavaScript, CSS and the font).
+and writes `out/` (1.9 MB, 60 files): `index.html`, `reconcile/index.html`, `guide/index.html`,
+`tokenization/index.html`, `404.html`, and `_next/static/` (hashed JavaScript, CSS, the font, and under
+`_next/static/media/` the logo files, the two favicons and the two hero images).
 There is no server bundle and no function. URLs end in a slash (`/reconcile/`).
 
 ## Deploy on Shadw.cloud
@@ -231,6 +275,14 @@ caches `/_next/static/` as immutable. It does not read request bodies and has no
 3. In the browser's network panel, load `/reconcile/`, clear the log, run the sample walkthrough to both
    downloads, and confirm the log stays empty and that every earlier request went to the app's own host.
    The automated privacy tests run against the local production build, not the deployed URL.
+4. Open `/` in Light and in Dark. Each should show its own illustration and Autheo mark, and the browser
+   tab should show the Autheo logomark. `curl -sI` one `.webp`, one `.png` and the `.svg` under
+   `/_next/static/media/` and check the content types (`image/webp`, `image/png`, `image/svg+xml`) and that
+   they are cached as immutable.
+5. Choose Dark, reload, and confirm the page opens dark with no flash of the light theme. If it flashes or
+   stays light, the host is blocking or rewriting the inline theme script (see below).
+6. With the sample deal open on `/reconcile/`, switch themes with the network panel open: no request, and
+   the session is unchanged. In the Application panel, storage holds `close-desk-theme` and nothing else.
 
 ### Not verified from this repository
 
@@ -241,6 +293,13 @@ These depend on the Shadw dashboard and could not be checked here:
 - Whether `vercel.json` `headers` are applied to a static deployment. If they are not, the in-page policy
   still applies (it cannot express `frame-ancestors`; `X-Frame-Options` would then also be missing), or use
   Option B.
+- Whether the host serves `.webp` as `image/webp`. A wrong type with `X-Content-Type-Options: nosniff` would
+  leave the hero blank. Option B sets it.
+- Whether the host leaves the inline theme script in `<head>` alone and does not replace the policy with a
+  stricter one. The script needs `script-src 'unsafe-inline'`, which the policy already allowed for Next.js;
+  no directive changed for the branding work.
+- Whether the host optimises, re-encodes or proxies images under `/_next/static/media/`. It should serve the
+  files as built; re-encoding would soften the logo and the line art.
 - That **Speed Insights**, analytics, and any other feature that injects a script into pages are off for
   this project. They would add a third-party script to the reconciliation screen. The in-page policy only
   allows scripts from the app's own origin, but turn them off rather than rely on that.
